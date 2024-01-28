@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <title>RLRR Player</title>
+  </head>
+  <body>
+    <ul>
+        <% for (const song of songs) { %>
+            <li>
+                <a href="<%= song.playerLink %>" target="_blank">
+                    <%= song.artist %> - <%= song.title %> [<%= song.level %>]
+                </a>
+            </li>
+        <% } %>
+    </ul>
+  </body>
+</html>
