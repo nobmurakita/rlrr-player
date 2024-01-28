@@ -73,6 +73,28 @@ function setup() {
         }
     })
 
+    // rewind 5s
+    document.querySelector('#rwd5').addEventListener('click', event => {
+        currentTime = Math.max(currentTime - 5 * 1000, 0);
+        seekbar.value = currentTime;
+        head = 0;
+        tail = 0;
+        if (isPlaying) {
+            pauseTracks();
+            playTracks();
+        }
+    });
+
+    // forward 5s
+    document.querySelector('#fwd5').addEventListener('click', event => {
+        currentTime = Math.min(currentTime + 5 * 1000, songLength);
+        seekbar.value = currentTime;
+        if (isPlaying) {
+            pauseTracks();
+            playTracks();
+        }
+    });
+
     // load song data
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
