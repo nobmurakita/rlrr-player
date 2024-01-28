@@ -7,6 +7,8 @@ const noteHideDelay = 200;
 let bluetoothLatency = 0;
 // bluetoothLatency = 150;
 
+let seekbar = null;
+
 let metaData = {};
 let songTracks = [];
 let drumTracks = [];
@@ -39,13 +41,39 @@ const NOTES = {
 }
 
 function setup() {
+    // canvas
     const canvas = createCanvas(480, 480);
     canvas.parent('player');
 
-    document.querySelector('#play').addEventListener('click', playTracks);
-    document.querySelector('#pause').addEventListener('click', pauseTracks);
-    document.querySelector('#stop').addEventListener('click', stopTracks);
+    // play or pause
+    canvas.mouseClicked(() => {
+        if (!isPlaying) {
+            playTracks();
+        } else {
+            pauseTracks()
+        }    
+    });
 
+    // seek
+    let restart = false;
+    seekbar = document.querySelector('#seekbar');
+    seekbar.addEventListener('input', (event) => {
+        if (isPlaying) {
+            restart = true;
+            pauseTracks();
+        }
+        currentTime = Number(event.target.value);
+        head = 0;
+        tail = 0;
+    })
+    seekbar.addEventListener('change', (event) => {
+        if (restart) {
+            playTracks();
+            restart = false;
+        }
+    })
+
+    // load song data
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
     if (rlrr) {
@@ -69,6 +97,7 @@ function rlrrLoaded(rlrr) {
     document.querySelector('#title').textContent = title;
 
     songLength = Math.floor(Number(metaData.length) * 1000);
+    seekbar.setAttribute('max', songLength);
 
     songTracks = Array(rlrr.audioFileData.songTracks.length);
     drumTracks = Array(rlrr.audioFileData.drumTracks.length);
@@ -128,21 +157,15 @@ function pauseTracks() {
     }
 }
 
-function stopTracks() {
-    pauseTracks();
-    startTime = 0;
-    currentTime = 0;
-    head = 0;
-    tail = 0;
-}
-
 function draw() {
     background(0);
     if (isLoaded) {
         if (isPlaying) {            
             currentTime = millis() - startTime;
+            seekbar.value = currentTime;
             if (songLength <= currentTime) {
-                stopTracks();
+                pauseTracks();
+                currentTime = 0;
             }
         }
         drawHighway();
