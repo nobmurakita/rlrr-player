@@ -40,7 +40,7 @@ const NOTES = {
     Ride21: { color: 'gold', shape: 'circle' },
 }
 
-function setup() {
+async function setup() {
     // canvas
     const canvas = createCanvas(480, 480);
     canvas.parent('player');
@@ -51,7 +51,7 @@ function setup() {
             playTracks();
         } else {
             pauseTracks()
-        }    
+        }
     });
 
     // seek
@@ -99,19 +99,29 @@ function setup() {
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
     if (rlrr) {
-        const [dirname, filename] = rlrr.split('/');
-        const m = filename.match(/.*_(Easy|Medium|Hard|Expert).rlrr/);
-        if (m) {
-            level = m[1];
-            rlrrFile = `/songs/${dirname}/${filename}`;
-            songDir = `/songs/${dirname}`;
-        
-            loadJSON(rlrrFile, rlrrLoaded);
-        }    
+        const m = rlrr.match(/([^/]+)\/([^/]+_(Easy|Medium|Hard|Expert)\.rlrr)/);
+        if (!m) {
+            throw new Error(`invalid rlrr file name: ${rlrr}`);
+        }
+
+        const dirname = m[1];
+        const filename = m[2];
+        level = m[3];
+
+        songDir = `/songs/${dirname}`;
+        rlrrUrl = `/songs/${dirname}/${filename}`;
+
+        await loadRlrr(rlrrUrl);
     }
 }
 
-function rlrrLoaded(rlrr) {
+async function loadRlrr(rlrrUrl) {
+    const response = await fetch(rlrrUrl);
+    if (!response.ok) {
+        throw new Error(`could not load url: ${url}`);
+    }
+    const rlrr = await response.json();
+
     metaData = rlrr.recordingMetadata;
 
     const title = `${metaData.artist} - ${metaData.title} [${level}]`;
@@ -120,15 +130,6 @@ function rlrrLoaded(rlrr) {
 
     songLength = Math.floor(Number(metaData.length) * 1000);
     seekbar.setAttribute('max', songLength);
-
-    songTracks = Array(rlrr.audioFileData.songTracks.length);
-    drumTracks = Array(rlrr.audioFileData.drumTracks.length);
-    rlrr.audioFileData.songTracks.forEach((trackFileName, index) => {
-        songTracks[index] = new Tone.Player(`${songDir}/${trackFileName}`, trackLoaded).toDestination();
-    });
-    rlrr.audioFileData.drumTracks.forEach((trackFileName, index) => {
-        drumTracks[index] = new Tone.Player(`${songDir}/${trackFileName}`, trackLoaded).toDestination();
-    });
 
     notes = rlrr.events.map(event => {
         const t = Math.floor(Number(event.time) * 1000) + bluetoothLatency;
@@ -147,21 +148,25 @@ function rlrrLoaded(rlrr) {
     highwayCount = highwayLanes.length;
     highwayWidth = highwayCount * 40;
     highwayLeft = (480 - highwayWidth) / 2;
-}
 
-function trackLoaded() {
-    if (songTracks.findIndex(track => !track || !track.loaded) != -1) {
-        return;
-    }
-    if (drumTracks.findIndex(track => !track || !track.loaded) != -1) {
-        return;
-    }
+    const songTrackPromises = rlrr.audioFileData.songTracks.map(loadTrack);
+    const drumTrackPromises = rlrr.audioFileData.drumTracks.map(loadTrack);
+    songTracks = await Promise.all(songTrackPromises);
+    drumTracks = await Promise.all(drumTrackPromises);
 
     isLoaded = true;
     console.log("ready");
 }
 
-function playTracks() {
+async function loadTrack(trackFileName) {
+    const player = new Tone.Player().toDestination();
+    return await player.load(`${songDir}/${trackFileName}`);
+}
+
+async function playTracks() {
+    if (Tone.getContext().state == 'suspended') {
+        await Tone.start();
+    }
     if (isLoaded && !isPlaying) {
         const offset = currentTime / 1000;
         songTracks.forEach(track => track.start(0, offset));
@@ -182,7 +187,7 @@ function pauseTracks() {
 function draw() {
     background(0);
     if (isLoaded) {
-        if (isPlaying) {            
+        if (isPlaying) {
             currentTime = millis() - startTime;
             seekbar.value = currentTime;
             if (songLength <= currentTime) {
