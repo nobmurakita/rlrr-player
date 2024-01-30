@@ -30,6 +30,78 @@ let currentTime = 0;
 let head = 0;
 let tail = 0;
 
+class Seekbar {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.max = 0;
+        this.value = 0;
+    }
+    contains(event) {
+        const rect = this._getSeekbarRect();
+        if (event.pageX < rect.left || rect.right < event.pageX) {
+            return false;
+        }
+        if (event.pageY < rect.top || rect.bottom < event.pageY) {
+            return false;
+        }
+        return true;
+    }
+    pressed() {
+        this.isPressed = true;
+        this.restart = isPlaying;
+        pauseTracks();
+    }
+    seek(pageX) {
+        if (this.isPressed) {
+            const rect = this._getSeekbarRect();
+            const x = Math.min(Math.max(pageX - rect.left, 0), 480);
+            this.value = Math.floor(x * this.max / 480);
+
+            currentTime = this.value;
+            head = 0;
+            tail = 0;    
+        }
+    }
+    released() {
+        if (this.restart) {
+            playTracks();
+        }
+        this.isPressed = false;
+        this.restart = false;
+    }
+    draw() {
+        noStroke();
+
+        const x = Math.floor(this.value * 480 / Math.max(this.max, 1));
+        fill(64);
+        rect(0, 460, 480, 20);
+        fill(96);
+        rect(0, 460, x, 20);
+
+        const fmt = (t) => {
+            const seconds = Math.floor(t / 1000);
+            const min = Math.floor(seconds / 60);
+            const sec = `0${seconds % 60}`.slice(-2);
+            return `${min}:${sec}`;
+        }
+        fill(isPlaying || this.restart ? 255 : 128);
+        textSize(10);
+        textAlign(RIGHT, CENTER);
+        text(`${fmt(this.value)} / ${fmt(this.max)}`, 476, 470);
+    }
+    _getSeekbarRect() {
+        const rect = this.canvas.elt.getBoundingClientRect() ;
+
+        rect.x += window.scrollX;
+        rect.y += window.scrollY;
+
+        rect.y += 460;
+        rect.height = 20;
+
+        return rect;
+    }
+}
+
 const NOTES = {
     Kick: { color: 'royalblue', shape: 'bar' },
     HiHat: { color: 'cyan', shape: 'circle' },
@@ -49,7 +121,11 @@ async function setup() {
     canvas.parent('player');
 
     // play or pause
-    canvas.mouseClicked(() => {
+    canvas.mouseClicked(event => {
+        if (seekbar.contains(event)) {
+            return;
+        }
+
         if (!isPlaying) {
             playTracks();
         } else {
@@ -57,32 +133,13 @@ async function setup() {
         }
     });
 
-    // seek
-    let restart = false;
-    seekbar = createSlider(0, 0);
-    seekbar.parent('player');
-    seekbar.position(0, 460);
-    seekbar.size(480, 20);
-    seekbar.elt.addEventListener('input', (event) => {
-        if (isPlaying) {
-            restart = true;
-            pauseTracks();
-        }
-        currentTime = Number(event.target.value);
-        head = 0;
-        tail = 0;
-    })
-    seekbar.elt.addEventListener('change', (event) => {
-        if (restart) {
-            playTracks();
-            restart = false;
-        }
-    })
+    // seekbar
+    seekbar = new Seekbar(canvas);
 
     // rewind 5s
     document.querySelector('#rwd5').addEventListener('click', event => {
         currentTime = Math.max(currentTime - 5 * 1000, 0);
-        seekbar.value(currentTime);
+        seekbar.value = currentTime;
         head = 0;
         tail = 0;
         if (isPlaying) {
@@ -94,7 +151,7 @@ async function setup() {
     // forward 5s
     document.querySelector('#fwd5').addEventListener('click', event => {
         currentTime = Math.min(currentTime + 5 * 1000, songLength);
-        seekbar.value(currentTime);
+        seekbar.value = currentTime;
         if (isPlaying) {
             pauseTracks();
             playTracks();
@@ -121,6 +178,25 @@ async function setup() {
     }
 }
 
+function mousePressed(event) {
+    if (seekbar.contains(event)) {
+        seekbar.pressed()
+        seekbar.seek(event.pageX);
+    }
+}
+
+function mouseDragged(event) {
+    if (seekbar.isPressed) {
+        seekbar.seek(event.pageX);
+    }
+}
+
+function mouseReleased() {
+    if (seekbar.isPressed) {
+        seekbar.released();
+    }
+}
+
 async function loadRlrr(rlrrFile) {
     const response = await fetch(rlrrFile);
     if (!response.ok) {
@@ -134,7 +210,7 @@ async function loadRlrr(rlrrFile) {
     songLength = Math.floor(Number(metaData.length) * 1000);
 
     document.title = `${title} [${level}]`;
-    seekbar.attribute('max', songLength);
+    seekbar.max = songLength;
 
     notes = rlrr.events.map(event => {
         const t = Math.floor(Number(event.time) * 1000) + bluetoothLatency;
@@ -174,7 +250,9 @@ async function playTracks() {
     if (!isLoading && !isPlaying) {
         if (songLength <= currentTime) {
             currentTime = 0;
-            seekbar.value(currentTime);
+            head = 0;
+            tail = 0;
+            seekbar.value = currentTime;
         }
         const offset = currentTime / 1000;
         songTracks.forEach(track => track.start(0, offset));
@@ -200,7 +278,7 @@ function draw() {
     } else {
         if (isPlaying) {
             currentTime = millis() - startTime;
-            seekbar.value(currentTime);
+            seekbar.value = currentTime;
             if (songLength <= currentTime) {
                 pauseTracks();
             }
@@ -212,6 +290,7 @@ function draw() {
     }
 
     drawTitle();
+    seekbar.draw();
 }
 
 function drawLoading() {
