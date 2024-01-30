@@ -1,6 +1,3 @@
-let songDir = '';
-let rlrrFile = '';
-let level = '';
 
 const noteVisibleTime = 1500;
 const noteHideDelay = 200;
@@ -9,7 +6,14 @@ let bluetoothLatency = 0;
 
 let seekbar = null;
 
-let metaData = {};
+let songDir = '';
+let rlrrFile = '';
+
+let artist = '';
+let title = '';
+let level = '';
+let songLength = 0;
+
 let songTracks = [];
 let drumTracks = [];
 let notes = [];
@@ -19,8 +23,7 @@ let highwayCount = 0;
 let highwayWidth = 0;
 let highwayLeft = 0;
 
-let songLength = 0;
-let isLoaded = false;
+let isLoading = true;
 let isPlaying = false;
 let startTime = 0;
 let currentTime = 0;
@@ -56,8 +59,11 @@ async function setup() {
 
     // seek
     let restart = false;
-    seekbar = document.querySelector('#seekbar');
-    seekbar.addEventListener('input', (event) => {
+    seekbar = createSlider(0, 0);
+    seekbar.parent('player');
+    seekbar.position(0, 460);
+    seekbar.size(480, 20);
+    seekbar.elt.addEventListener('input', (event) => {
         if (isPlaying) {
             restart = true;
             pauseTracks();
@@ -66,7 +72,7 @@ async function setup() {
         head = 0;
         tail = 0;
     })
-    seekbar.addEventListener('change', (event) => {
+    seekbar.elt.addEventListener('change', (event) => {
         if (restart) {
             playTracks();
             restart = false;
@@ -76,7 +82,7 @@ async function setup() {
     // rewind 5s
     document.querySelector('#rwd5').addEventListener('click', event => {
         currentTime = Math.max(currentTime - 5 * 1000, 0);
-        seekbar.value = currentTime;
+        seekbar.value(currentTime);
         head = 0;
         tail = 0;
         if (isPlaying) {
@@ -88,7 +94,7 @@ async function setup() {
     // forward 5s
     document.querySelector('#fwd5').addEventListener('click', event => {
         currentTime = Math.min(currentTime + 5 * 1000, songLength);
-        seekbar.value = currentTime;
+        seekbar.value(currentTime);
         if (isPlaying) {
             pauseTracks();
             playTracks();
@@ -109,27 +115,26 @@ async function setup() {
         level = m[3];
 
         songDir = `/songs/${dirname}`;
-        rlrrUrl = `/songs/${dirname}/${filename}`;
+        rlrrFile = `/songs/${dirname}/${filename}`;
 
-        await loadRlrr(rlrrUrl);
+        await loadRlrr(rlrrFile);
     }
 }
 
-async function loadRlrr(rlrrUrl) {
-    const response = await fetch(rlrrUrl);
+async function loadRlrr(rlrrFile) {
+    const response = await fetch(rlrrFile);
     if (!response.ok) {
-        throw new Error(`could not load url: ${url}`);
+        throw new Error(`could not load url: ${rlrrFile}`);
     }
     const rlrr = await response.json();
 
-    metaData = rlrr.recordingMetadata;
-
-    const title = `${metaData.artist} - ${metaData.title} [${level}]`;
-    document.title = title;
-    document.querySelector('#title').textContent = title;
-
+    const metaData = rlrr.recordingMetadata;
+    artist = metaData.artist;
+    title = metaData.title;
     songLength = Math.floor(Number(metaData.length) * 1000);
-    seekbar.setAttribute('max', songLength);
+
+    document.title = `${title} [${level}]`;
+    seekbar.attribute('max', songLength);
 
     notes = rlrr.events.map(event => {
         const t = Math.floor(Number(event.time) * 1000) + bluetoothLatency;
@@ -154,8 +159,7 @@ async function loadRlrr(rlrrUrl) {
     songTracks = await Promise.all(songTrackPromises);
     drumTracks = await Promise.all(drumTrackPromises);
 
-    isLoaded = true;
-    console.log("ready");
+    isLoading = false;
 }
 
 async function loadTrack(trackFileName) {
@@ -167,7 +171,11 @@ async function playTracks() {
     if (Tone.getContext().state == 'suspended') {
         await Tone.start();
     }
-    if (isLoaded && !isPlaying) {
+    if (!isLoading && !isPlaying) {
+        if (songLength <= currentTime) {
+            currentTime = 0;
+            seekbar.value(currentTime);
+        }
         const offset = currentTime / 1000;
         songTracks.forEach(track => track.start(0, offset));
         drumTracks.forEach(track => track.start(0, offset));
@@ -186,19 +194,47 @@ function pauseTracks() {
 
 function draw() {
     background(0);
-    if (isLoaded) {
+
+    if (isLoading) {
+        drawLoading();
+    } else {
         if (isPlaying) {
             currentTime = millis() - startTime;
-            seekbar.value = currentTime;
+            seekbar.value(currentTime);
             if (songLength <= currentTime) {
                 pauseTracks();
-                currentTime = 0;
             }
         }
         drawHighway();
         seekVisibleNotes();
         drawNoteGuidelines();
         drawNotes();
+    }
+
+    drawTitle();
+}
+
+function drawLoading() {
+    noStroke();
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text("LOADING...", 240, 240);
+}
+
+function drawTitle() {
+    noStroke();
+    const c = color(192);
+    c.setAlpha(128);
+    fill(c)
+    rect(0, 0, 480, 40);
+    if (title) {
+        fill(255);
+        textAlign(LEFT, TOP);
+        textSize(16);
+        text(`${title} [${level}]`, 4, 4);
+        textSize(12);
+        text(artist, 4, 24);    
     }
 }
 
@@ -224,11 +260,12 @@ function drawHighway() {
         line(x, 0, x, 480);
     }
 
-    const x = highwayLeft;
+    const x = highwayLeft - 6;
+    const w = highwayWidth + 12;
     const h = 6;
     noStroke();
-    fill(color(128));
-    rect(x, 460 - h / 2, highwayWidth, h);
+    fill(color(192));
+    rect(x, 440 - h / 2, w, h);
 }
 
 function drawNoteGuidelines() {
@@ -241,7 +278,7 @@ function drawNoteGuidelines() {
         }
     }
     for (const t of Object.keys(s)) {
-        const y = 460 - Math.max(t - currentTime, 0) * 460 / noteVisibleTime;
+        const y = 440 - Math.max(t - currentTime, 0) * 440 / noteVisibleTime;
         line(highwayLeft, y, highwayLeft + highwayWidth, y);
     }
 }
@@ -263,12 +300,12 @@ function drawNotes() {
     for (const note of kicks) {
         let x = highwayLeft;
         let w = highwayWidth;
-        const y = 460 - Math.max(note.hit - currentTime, 0) * 460 / noteVisibleTime;
+        const y = 440 - Math.max(note.hit - currentTime, 0) * 440 / noteVisibleTime;
         const h = currentTime < note.hit ? 6 : 12;
         const c = color(NOTES.Kick.color);
         if (note.hit <= currentTime) {
-            x -= 5;
-            w += 10;
+            x -= 10;
+            w += 20;
         }
         const a = 255 - Math.max(currentTime - note.hit, 0) * 255 / noteHideDelay;
         c.setAlpha(a);
@@ -281,7 +318,7 @@ function drawNotes() {
     strokeWeight(1);
     for (const note of others) {
         const x = highwayLeft + highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
-        const y = 460 - Math.max(note.hit - currentTime, 0) * 460 / noteVisibleTime;
+        const y = 440 - Math.max(note.hit - currentTime, 0) * 440 / noteVisibleTime;
         const c = color(NOTES[note.drum].color);
         const a = 255 - Math.max(currentTime - note.hit, 0) * 255 / noteHideDelay;
         c.setAlpha(a);
