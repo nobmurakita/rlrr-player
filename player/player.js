@@ -4,6 +4,13 @@ const noteHideDelay = 200;
 let bluetoothLatency = 0;
 // bluetoothLatency = 150;
 
+let offscreen = null;
+
+let viewportX = 0;
+let viewportY = 0;
+let viewportW = 480;
+let viewportH = 480;
+
 let seekbar = null;
 
 let songDir = '';
@@ -39,7 +46,7 @@ class Seekbar {
         this.max = 0;
         this.value = 0;
     }
-    isMouseOver() {
+    isMouseOver(mouseX, mouseY) {
         if (mouseX < this.x || this.x + this.w < mouseX) {
             return false;
         }
@@ -48,13 +55,13 @@ class Seekbar {
         }
         return true;
     }
-    seekStart() {
+    seekStart(mouseX) {
         this.isDragging = true;
         this.restart = isPlaying;
         pauseTracks();
-        this.seek();
+        this.seek(mouseX);
     }
-    seek() {
+    seek(mouseX) {
         if (this.isDragging) {
             const v = Math.min(Math.max(mouseX - this.x, 0), this.w);
             this.value = Math.floor(v * this.max / this.w);
@@ -71,13 +78,13 @@ class Seekbar {
         this.restart = false;
     }
     draw() {
-        noStroke();
+        offscreen.noStroke();
 
         const v = Math.floor(this.value * this.w / Math.max(this.max, 1));
-        fill(64);
-        rect(this.x, this.y, this.w, this.h);
-        fill(96);
-        rect(this.x, this.y, v, this.h);
+        offscreen.fill(64);
+        offscreen.rect(this.x, this.y, this.w, this.h);
+        offscreen.fill(96);
+        offscreen.rect(this.x, this.y, v, this.h);
 
         const fmt = (t) => {
             const seconds = Math.floor(t / 1000);
@@ -85,10 +92,10 @@ class Seekbar {
             const sec = `0${seconds % 60}`.slice(-2);
             return `${min}:${sec}`;
         }
-        fill(isPlaying || this.restart ? 255 : 128);
-        textSize(this.h / 2);
-        textAlign(RIGHT, CENTER);
-        text(`${fmt(this.value)} / ${fmt(this.max)}`, this.x + this.w - 4, this.y + this.h / 2);
+        offscreen.fill(isPlaying || this.restart ? 255 : 128);
+        offscreen.textSize(this.h / 2);
+        offscreen.textAlign(RIGHT, CENTER);
+        offscreen.text(`${fmt(this.value)} / ${fmt(this.max)}`, this.x + this.w - 4, this.y + this.h / 2);
     }
 }
 
@@ -110,16 +117,26 @@ async function setup() {
     const canvas = createCanvas(480, 480);
     canvas.parent('player');
 
+    offscreen = createGraphics(480, 480);
+
     // play or pause
     canvas.mouseClicked(() => {
-        if (seekbar.isMouseOver()) {
+        const offscreenX = toOffscreenX(mouseX);
+        const offscreenY = toOffscreenY(mouseY);
+
+        if (offscreenX < 0 || 480 < offscreenX) {
+            return;
+        }
+        if (offscreenY < 0 || 480 < offscreenY) {
             return;
         }
 
-        if (!isPlaying) {
-            playTracks();
-        } else {
-            pauseTracks()
+        if (!seekbar.isMouseOver(offscreenX, offscreenY)) {
+            if (!isPlaying) {
+                playTracks();
+            } else {
+                pauseTracks()
+            }
         }
     });
 
@@ -169,14 +186,14 @@ async function setup() {
 }
 
 function mousePressed() {
-    if (seekbar.isMouseOver()) {
-        seekbar.seekStart()
+    if (seekbar.isMouseOver(toOffscreenX(mouseX), toOffscreenY(mouseY))) {
+        seekbar.seekStart(toOffscreenX(mouseX))
     }
 }
 
 function mouseDragged() {
     if (seekbar.isDragging) {
-        seekbar.seek();
+        seekbar.seek(toOffscreenX(mouseX));
     }
 }
 
@@ -184,6 +201,16 @@ function mouseReleased() {
     if (seekbar.isDragging) {
         seekbar.seekEnd();
     }
+}
+
+// X座標をcanvasの座標系からoffscreenの座標系に変換
+function toOffscreenX(x) {
+    return Math.floor((x - viewportX) / viewportW * 480);
+}
+
+// Y座標をcanvasの座標系からoffscreenの座標系に変換
+function toOffscreenY(y) {
+    return Math.floor((y - viewportY) / viewportH * 480);
 }
 
 async function loadRlrr(rlrrFile) {
@@ -260,7 +287,13 @@ function pauseTracks() {
 }
 
 function draw() {
-    background(0);
+    background(32);
+    drawOffscreen();
+    image(offscreen, viewportX, viewportY, viewportW, viewportH);
+}
+
+function drawOffscreen() {
+    offscreen.background(0);
 
     if (isLoading) {
         drawLoading();
@@ -283,26 +316,26 @@ function draw() {
 }
 
 function drawLoading() {
-    noStroke();
-    fill(255);
-    textAlign(CENTER, CENTER);
-    textSize(20);
-    text("LOADING...", 240, 240);
+    offscreen.noStroke();
+    offscreen.fill(255);
+    offscreen.textAlign(CENTER, CENTER);
+    offscreen.textSize(20);
+    offscreen.text("LOADING...", 240, 240);
 }
 
 function drawTitle() {
-    noStroke();
+    offscreen.noStroke();
     const c = color(192);
     c.setAlpha(128);
-    fill(c)
-    rect(0, 0, 480, 40);
+    offscreen.fill(c)
+    offscreen.rect(0, 0, 480, 40);
     if (title) {
-        fill(255);
-        textAlign(LEFT, TOP);
-        textSize(16);
-        text(`${title} [${level}]`, 4, 4);
-        textSize(12);
-        text(artist, 4, 24);    
+        offscreen.fill(255);
+        offscreen.textAlign(LEFT, TOP);
+        offscreen.textSize(16);
+        offscreen.text(`${title} [${level}]`, 4, 4);
+        offscreen.textSize(12);
+        offscreen.text(artist, 4, 24);    
     }
 }
 
@@ -316,29 +349,29 @@ function seekVisibleNotes() {
 }
 
 function drawHighway() {
-    noStroke();
-    fill(color(32));
-    rect(highwayLeft, 0, highwayWidth, 480);
+    offscreen.noStroke();
+    offscreen.fill(color(32));
+    offscreen.rect(highwayLeft, 0, highwayWidth, 480);
 
-    stroke(64);
-    strokeWeight(1);
+    offscreen.stroke(64);
+    offscreen.strokeWeight(1);
     const lineCount = highwayCount + 1;
     for (let i = 0; i < lineCount; i++) {
         const x = highwayLeft + i * 40;
-        line(x, 0, x, 480);
+        offscreen.line(x, 0, x, 480);
     }
 
     const x = highwayLeft - 6;
     const w = highwayWidth + 12;
     const h = 6;
-    noStroke();
-    fill(color(192));
-    rect(x, 440 - h / 2, w, h);
+    offscreen.noStroke();
+    offscreen.fill(color(192));
+    offscreen.rect(x, 440 - h / 2, w, h);
 }
 
 function drawNoteGuidelines() {
-    stroke(64);
-    strokeWeight(2);
+    offscreen.stroke(64);
+    offscreen.strokeWeight(2);
     const s = {};
     for (let i = head; i < tail; i++) {
         if (currentTime < notes[i].hit) {
@@ -347,7 +380,7 @@ function drawNoteGuidelines() {
     }
     for (const t of Object.keys(s)) {
         const y = 440 - Math.max(t - currentTime, 0) * 440 / noteVisibleTime;
-        line(highwayLeft, y, highwayLeft + highwayWidth, y);
+        offscreen.line(highwayLeft, y, highwayLeft + highwayWidth, y);
     }
 }
 
@@ -364,7 +397,7 @@ function drawNotes() {
         }
     }
 
-    noStroke();
+    offscreen.noStroke();
     for (const note of kicks) {
         let x = highwayLeft;
         let w = highwayWidth;
@@ -377,30 +410,30 @@ function drawNotes() {
         }
         const a = 255 - Math.max(currentTime - note.hit, 0) * 255 / noteHideDelay;
         c.setAlpha(a);
-        fill(c);
-        rect(x, y - h / 2, w, h);
+        offscreen.fill(c);
+        offscreen.rect(x, y - h / 2, w, h);
     }
 
-    noStroke();
-    stroke(255);
-    strokeWeight(1);
+    offscreen.noStroke();
+    offscreen.stroke(255);
+    offscreen.strokeWeight(1);
     for (const note of others) {
         const x = highwayLeft + highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
         const y = 440 - Math.max(note.hit - currentTime, 0) * 440 / noteVisibleTime;
         const c = color(NOTES[note.drum].color);
         const a = 255 - Math.max(currentTime - note.hit, 0) * 255 / noteHideDelay;
         c.setAlpha(a);
-        fill(c);
+        offscreen.fill(c);
         switch(NOTES[note.drum].shape) {
             case 'circle': {
                 const r = currentTime < note.hit ? 20 : 26;
-                circle(x, y, r);
+                offscreen.circle(x, y, r);
                 break;
             }
             case 'rect': {
                 const h = currentTime < note.hit ? 10 : 16;
                 const w = currentTime < note.hit ? 30 : 36;
-                rect(x - w / 2, y - h / 2, w, h);
+                offscreen.rect(x - w / 2, y - h / 2, w, h);
                 break;
             }
         }
