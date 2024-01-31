@@ -299,6 +299,12 @@ function draw() {
     background(32);
     drawOffscreen();
     image(offscreen, viewportX, viewportY, viewportW, viewportH);
+
+    if (seekbar.isMouseOver(toOffscreenX(mouseX), toOffscreenY(mouseY))) {
+        cursor('ew-resize')
+    } else {
+        cursor(isLoading ? 'wait' : 'pointer')
+    }
 }
 
 function drawOffscreen() {
