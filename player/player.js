@@ -31,52 +31,53 @@ let head = 0;
 let tail = 0;
 
 class Seekbar {
-    constructor(canvas) {
-        this.canvas = canvas;
+    constructor(x, y, w, h) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
         this.max = 0;
         this.value = 0;
     }
-    contains(event) {
-        const rect = this._getSeekbarRect();
-        if (event.pageX < rect.left || rect.right < event.pageX) {
+    isMouseOver() {
+        if (mouseX < this.x || this.x + this.w < mouseX) {
             return false;
         }
-        if (event.pageY < rect.top || rect.bottom < event.pageY) {
+        if (mouseY < this.y || this.y + this.h < mouseY) {
             return false;
         }
         return true;
     }
-    pressed() {
-        this.isPressed = true;
+    seekStart() {
+        this.isDragging = true;
         this.restart = isPlaying;
         pauseTracks();
+        this.seek();
     }
-    seek(pageX) {
-        if (this.isPressed) {
-            const rect = this._getSeekbarRect();
-            const x = Math.min(Math.max(pageX - rect.left, 0), 480);
-            this.value = Math.floor(x * this.max / 480);
-
+    seek() {
+        if (this.isDragging) {
+            const v = Math.min(Math.max(mouseX - this.x, 0), this.w);
+            this.value = Math.floor(v * this.max / this.w);
             currentTime = this.value;
             head = 0;
             tail = 0;    
         }
     }
-    released() {
+    seekEnd() {
         if (this.restart) {
             playTracks();
         }
-        this.isPressed = false;
+        this.isDragging = false;
         this.restart = false;
     }
     draw() {
         noStroke();
 
-        const x = Math.floor(this.value * 480 / Math.max(this.max, 1));
+        const v = Math.floor(this.value * this.w / Math.max(this.max, 1));
         fill(64);
-        rect(0, 460, 480, 20);
+        rect(this.x, this.y, this.w, this.h);
         fill(96);
-        rect(0, 460, x, 20);
+        rect(this.x, this.y, v, this.h);
 
         const fmt = (t) => {
             const seconds = Math.floor(t / 1000);
@@ -85,20 +86,9 @@ class Seekbar {
             return `${min}:${sec}`;
         }
         fill(isPlaying || this.restart ? 255 : 128);
-        textSize(10);
+        textSize(this.h / 2);
         textAlign(RIGHT, CENTER);
-        text(`${fmt(this.value)} / ${fmt(this.max)}`, 476, 470);
-    }
-    _getSeekbarRect() {
-        const rect = this.canvas.elt.getBoundingClientRect() ;
-
-        rect.x += window.scrollX;
-        rect.y += window.scrollY;
-
-        rect.y += 460;
-        rect.height = 20;
-
-        return rect;
+        text(`${fmt(this.value)} / ${fmt(this.max)}`, this.x + this.w - 4, this.y + this.h / 2);
     }
 }
 
@@ -121,8 +111,8 @@ async function setup() {
     canvas.parent('player');
 
     // play or pause
-    canvas.mouseClicked(event => {
-        if (seekbar.contains(event)) {
+    canvas.mouseClicked(() => {
+        if (seekbar.isMouseOver()) {
             return;
         }
 
@@ -134,7 +124,7 @@ async function setup() {
     });
 
     // seekbar
-    seekbar = new Seekbar(canvas);
+    seekbar = new Seekbar(0, 460, 480, 20);
 
     // rewind 5s
     document.querySelector('#rwd5').addEventListener('click', event => {
@@ -178,22 +168,21 @@ async function setup() {
     }
 }
 
-function mousePressed(event) {
-    if (seekbar.contains(event)) {
-        seekbar.pressed()
-        seekbar.seek(event.pageX);
+function mousePressed() {
+    if (seekbar.isMouseOver()) {
+        seekbar.seekStart()
     }
 }
 
-function mouseDragged(event) {
-    if (seekbar.isPressed) {
-        seekbar.seek(event.pageX);
+function mouseDragged() {
+    if (seekbar.isDragging) {
+        seekbar.seek();
     }
 }
 
 function mouseReleased() {
-    if (seekbar.isPressed) {
-        seekbar.released();
+    if (seekbar.isDragging) {
+        seekbar.seekEnd();
     }
 }
 
