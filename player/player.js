@@ -113,59 +113,11 @@ const NOTES = {
 }
 
 async function setup() {
-    // canvas
-    const canvas = createCanvas(480, 480);
-    canvas.parent('player');
-
+    createCanvas(480, 480);
     offscreen = createGraphics(480, 480);
-
-    // play or pause
-    canvas.mouseClicked(() => {
-        const offscreenX = toOffscreenX(mouseX);
-        const offscreenY = toOffscreenY(mouseY);
-
-        if (offscreenX < 0 || 480 < offscreenX) {
-            return;
-        }
-        if (offscreenY < 0 || 480 < offscreenY) {
-            return;
-        }
-
-        if (!seekbar.isMouseOver(offscreenX, offscreenY)) {
-            if (!isPlaying) {
-                playTracks();
-            } else {
-                pauseTracks()
-            }
-        }
-    });
-
-    // seekbar
     seekbar = new Seekbar(0, 460, 480, 20);
 
-    // rewind 5s
-    document.querySelector('#rwd5').addEventListener('click', event => {
-        currentTime = Math.max(currentTime - 5 * 1000, 0);
-        seekbar.value = currentTime;
-        head = 0;
-        tail = 0;
-        if (isPlaying) {
-            pauseTracks();
-            playTracks();
-        }
-    });
-
-    // forward 5s
-    document.querySelector('#fwd5').addEventListener('click', event => {
-        currentTime = Math.min(currentTime + 5 * 1000, songLength);
-        seekbar.value = currentTime;
-        if (isPlaying) {
-            pauseTracks();
-            playTracks();
-        }
-    });
-
-    // load song data
+    // loading
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
     if (rlrr) {
@@ -182,6 +134,65 @@ async function setup() {
         rlrrFile = `/songs/${dirname}/${filename}`;
 
         await loadRlrr(rlrrFile);
+        isLoading = false;
+    }
+}
+
+function mouseClicked() {
+    const offscreenX = toOffscreenX(mouseX);
+    const offscreenY = toOffscreenY(mouseY);
+
+    if (offscreenX < 0 || 480 < offscreenX) {
+        return;
+    }
+    if (offscreenY < 0 || 480 < offscreenY) {
+        return;
+    }
+
+    if (!seekbar.isMouseOver(offscreenX, offscreenY)) {
+        if (!isPlaying) {
+            playTracks();
+        } else {
+            pauseTracks()
+        }
+    }
+}
+
+function keyPressed() {
+    if (key == ' ') {
+        if (!isPlaying) {
+            playTracks();
+        } else {
+            pauseTracks()
+        }
+    }
+    if (key == 'ArrowLeft' || key == 'ArrowRight') {
+        const skip = (key == 'ArrowLeft' ? -5 : 5) * 1000;
+        currentTime = Math.max(currentTime + skip, 0);
+        seekbar.value = currentTime;
+        head = 0;
+        tail = 0;
+        if (isPlaying) {
+            pauseTracks();
+            playTracks();
+        }
+    }
+    if (key == 'Backspace' || key == 'Delete') {
+        currentTime = 0;
+        seekbar.value = currentTime;
+        head = 0;
+        tail = 0;
+        if (isPlaying) {
+            pauseTracks();
+            playTracks();
+        }
+    }
+    if (key == 'Escape') {
+        currentTime = 0;
+        seekbar.value = currentTime;
+        head = 0;
+        tail = 0;
+        pauseTracks();
     }
 }
 
@@ -250,8 +261,6 @@ async function loadRlrr(rlrrFile) {
     const drumTrackPromises = rlrr.audioFileData.drumTracks.map(loadTrack);
     songTracks = await Promise.all(songTrackPromises);
     drumTracks = await Promise.all(drumTrackPromises);
-
-    isLoading = false;
 }
 
 async function loadTrack(trackFileName) {
