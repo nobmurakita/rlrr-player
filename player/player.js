@@ -113,7 +113,9 @@ const NOTES = {
 }
 
 async function setup() {
-    createCanvas(480, 480);
+    createCanvas(0, 0);
+    updateCanvasSize();
+
     offscreen = createGraphics(480, 480);
     seekbar = new Seekbar(0, 460, 480, 20);
 
@@ -194,6 +196,9 @@ function keyPressed() {
         tail = 0;
         pauseTracks();
     }
+    if (key == 'f') {
+        fullscreen(true);
+    }
 }
 
 function mousePressed() {
@@ -222,6 +227,19 @@ function toOffscreenX(x) {
 // Y座標をcanvasの座標系からoffscreenの座標系に変換
 function toOffscreenY(y) {
     return Math.floor((y - viewportY) / viewportH * 480);
+}
+
+function windowResized() {
+    updateCanvasSize();
+}
+
+function updateCanvasSize() {
+    const wmin = Math.min(windowWidth, windowHeight);
+    resizeCanvas(windowWidth, wmin);
+    viewportX = (windowWidth - wmin) / 2;
+    viewportY = 0;
+    viewportW = wmin;
+    viewportH = wmin;
 }
 
 async function loadRlrr(rlrrFile) {
@@ -299,12 +317,7 @@ function draw() {
     background(32);
     drawOffscreen();
     image(offscreen, viewportX, viewportY, viewportW, viewportH);
-
-    if (seekbar.isMouseOver(toOffscreenX(mouseX), toOffscreenY(mouseY))) {
-        cursor('ew-resize')
-    } else {
-        cursor(isLoading ? 'wait' : 'pointer')
-    }
+    updateCursor();
 }
 
 function drawOffscreen() {
@@ -452,5 +465,26 @@ function drawNotes() {
                 break;
             }
         }
+    }
+}
+
+function updateCursor() {
+    let inOffscreen = true;
+    const offscreenX = toOffscreenX(mouseX);
+    const offscreenY = toOffscreenY(mouseY);
+    if (offscreenX < 0 || 480 < offscreenX) {
+        inOffscreen = false;
+    }
+    if (offscreenY < 0 || 480 < offscreenY) {
+        inOffscreen = false;
+    }
+    if (inOffscreen) {
+        if (seekbar.isMouseOver(offscreenX, offscreenY)) {
+            cursor('ew-resize')
+        } else {
+            cursor(isLoading ? 'wait' : 'pointer')
+        }    
+    } else {
+        cursor('default');
     }
 }
