@@ -1,8 +1,8 @@
 
-const noteVisibleTime = 1500;
-const noteHideDelay = 200;
+const noteVisibleTime = 1.5;
+const noteHideDelay = 0.2;
 let bluetoothLatency = 0;
-// bluetoothLatency = 150;
+// bluetoothLatency = 0.15;
 
 let offscreen = null;
 
@@ -64,7 +64,7 @@ class Seekbar {
     seek(mouseX) {
         if (this.isDragging) {
             const v = Math.min(Math.max(mouseX - this.x, 0), this.w);
-            this.value = Math.floor(v * this.max / this.w);
+            this.value = v * this.max / this.w;
             currentTime = this.value;
             head = 0;
             tail = 0;    
@@ -80,14 +80,14 @@ class Seekbar {
     draw() {
         offscreen.noStroke();
 
-        const v = Math.floor(this.value * this.w / Math.max(this.max, 1));
+        const v = this.value * this.w / Math.max(this.max, 1);
         offscreen.fill(64);
         offscreen.rect(this.x, this.y, this.w, this.h);
         offscreen.fill(96);
         offscreen.rect(this.x, this.y, v, this.h);
 
         const fmt = (t) => {
-            const seconds = Math.floor(t / 1000);
+            const seconds = Math.floor(t);
             const min = Math.floor(seconds / 60);
             const sec = `0${seconds % 60}`.slice(-2);
             return `${min}:${sec}`;
@@ -169,7 +169,7 @@ function keyPressed() {
         }
     }
     if (key == 'ArrowLeft' || key == 'ArrowRight') {
-        const skip = (key == 'ArrowLeft' ? -5 : 5) * 1000;
+        const skip = key == 'ArrowLeft' ? -5 : 5;
         currentTime = Math.max(currentTime + skip, 0);
         seekbar.value = currentTime;
         head = 0;
@@ -221,12 +221,12 @@ function mouseReleased() {
 
 // X座標をcanvasの座標系からoffscreenの座標系に変換
 function toOffscreenX(x) {
-    return Math.floor((x - viewportX) / viewportW * 480);
+    return (x - viewportX) / viewportW * 480;
 }
 
 // Y座標をcanvasの座標系からoffscreenの座標系に変換
 function toOffscreenY(y) {
-    return Math.floor((y - viewportY) / viewportH * 480);
+    return (y - viewportY) / viewportH * 480;
 }
 
 function windowResized() {
@@ -252,13 +252,13 @@ async function loadRlrr(rlrrFile) {
     const metaData = rlrr.recordingMetadata;
     artist = metaData.artist;
     title = metaData.title;
-    songLength = Math.floor(Number(metaData.length) * 1000);
+    songLength = metaData.length;
 
     document.title = `${title} [${level}]`;
     seekbar.max = songLength;
 
     notes = rlrr.events.map(event => {
-        const t = Math.floor(Number(event.time) * 1000) + bluetoothLatency;
+        const t = Number(event.time) + bluetoothLatency;
         return {
             drum: event.name.split('_')[1],
             show: t - noteVisibleTime,
@@ -297,10 +297,10 @@ async function playTracks() {
             tail = 0;
             seekbar.value = currentTime;
         }
-        const offset = currentTime / 1000;
-        songTracks.forEach(track => track.start(0, offset));
-        drumTracks.forEach(track => track.start(0, offset));
-        startTime = millis() - currentTime;
+        const now = Tone.now();
+        songTracks.forEach(track => track.start(now, currentTime));
+        drumTracks.forEach(track => track.start(now, currentTime));
+        startTime = now - currentTime;
         isPlaying = true;
     }
 }
@@ -327,7 +327,7 @@ function drawOffscreen() {
         drawLoading();
     } else {
         if (isPlaying) {
-            currentTime = millis() - startTime;
+            currentTime = Tone.now() - startTime;
             seekbar.value = currentTime;
             if (songLength <= currentTime) {
                 pauseTracks();
