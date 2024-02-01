@@ -81,6 +81,7 @@ class Seekbar {
         offscreen.noStroke();
 
         const v = this.value * this.w / Math.max(this.max, 1);
+        offscreen.rectMode(CORNER);
         offscreen.fill(64);
         offscreen.rect(this.x, this.y, this.w, this.h);
         offscreen.fill(96);
@@ -356,6 +357,7 @@ function drawTitle() {
     const c = color(192);
     c.setAlpha(128);
     offscreen.fill(c)
+    offscreen.rectMode(CORNER);
     offscreen.rect(0, 0, 480, 40);
     if (title) {
         offscreen.fill(255);
@@ -377,38 +379,34 @@ function seekVisibleNotes() {
 }
 
 function drawHighway() {
-    offscreen.noStroke();
-    offscreen.fill(color(32));
-    offscreen.rect(highwayLeft, 0, highwayWidth, 480);
-
     offscreen.stroke(64);
     offscreen.strokeWeight(1);
-    const lineCount = highwayCount + 1;
-    for (let i = 0; i < lineCount; i++) {
-        const x = highwayLeft + i * 40;
-        offscreen.line(x, 0, x, 480);
+    offscreen.fill(color(32));
+    offscreen.rectMode(CORNER);
+    for (let i = 0; i < highwayCount; i++) {
+        offscreen.rect(highwayLeft + i * 40, 0, 40, 480);
     }
 
-    const x = highwayLeft - 6;
-    const w = highwayWidth + 12;
-    const h = 6;
     offscreen.noStroke();
     offscreen.fill(color(192));
-    offscreen.rect(x, 440 - h / 2, w, h);
+    offscreen.rectMode(CENTER);
+    offscreen.rect(240, 440, highwayWidth + 12, 6);
 }
 
 function drawNoteGuidelines() {
-    offscreen.stroke(64);
-    offscreen.strokeWeight(2);
-    const s = {};
+    const guidelines = {};
     for (let i = head; i < tail; i++) {
         if (currentTime < notes[i].hit) {
-            s[notes[i].hit] = true;
+            guidelines[notes[i].hit] = true;
         }
     }
-    for (const t of Object.keys(s)) {
-        const y = 440 - Math.max(t - currentTime, 0) * 440 / noteVisibleTime;
-        offscreen.line(highwayLeft, y, highwayLeft + highwayWidth, y);
+
+    offscreen.noStroke();
+    offscreen.fill(color(64));
+    offscreen.rectMode(CENTER);
+    for (const hit of Object.keys(guidelines)) {
+        const y = 440 - Math.max(hit - currentTime, 0) * 440 / noteVisibleTime;
+        offscreen.rect(240, y, highwayWidth, 1);
     }
 }
 
@@ -426,25 +424,21 @@ function drawNotes() {
     }
 
     offscreen.noStroke();
+    offscreen.rectMode(CENTER);
     for (const note of kicks) {
-        let x = highwayLeft;
-        let w = highwayWidth;
         const y = 440 - Math.max(note.hit - currentTime, 0) * 440 / noteVisibleTime;
+        const w = currentTime < note.hit ? highwayWidth : highwayWidth + 20;
         const h = currentTime < note.hit ? 6 : 12;
         const c = color(NOTES.Kick.color);
-        if (note.hit <= currentTime) {
-            x -= 10;
-            w += 20;
-        }
         const a = 255 - Math.max(currentTime - note.hit, 0) * 255 / noteHideDelay;
         c.setAlpha(a);
         offscreen.fill(c);
-        offscreen.rect(x, y - h / 2, w, h);
+        offscreen.rect(240, y, w, h);
     }
 
-    offscreen.noStroke();
     offscreen.stroke(255);
     offscreen.strokeWeight(1);
+    offscreen.rectMode(CENTER);
     for (const note of others) {
         const x = highwayLeft + highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
         const y = 440 - Math.max(note.hit - currentTime, 0) * 440 / noteVisibleTime;
@@ -461,7 +455,7 @@ function drawNotes() {
             case 'rect': {
                 const h = currentTime < note.hit ? 10 : 16;
                 const w = currentTime < note.hit ? 30 : 36;
-                offscreen.rect(x - w / 2, y - h / 2, w, h);
+                offscreen.rect(x, y, w, h);
                 break;
             }
         }
