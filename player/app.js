@@ -32,6 +32,20 @@ const stopAudioBufferSource = source => {
     return null;
 }
 
+let prevTime = audioCtx.currentTime;
+const fixAudioContextStuck = async () => {
+    if (audioCtx.state == 'running') {
+        if (prevTime == audioCtx.currentTime) {
+            console.warn('AudioContext stuck');
+            await audioCtx.suspend();
+            await audioCtx.resume();
+        }
+        prevTime = audioCtx.currentTime;    
+    }
+    setTimeout(fixAudioContextStuck, 100);
+}
+setTimeout(fixAudioContextStuck, 100);
+
 class App {
     constructor() {
         this.artist = '';
