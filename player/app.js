@@ -16,118 +16,72 @@ const NOTES = {
     Ride21: { color: 'gold', shape: 'circle' },
 }
 
-let audioCtx = new AudioContext();
-
-const toAudioBufferSource = buffer => {
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioCtx.destination);
-    return source;
-}
-
-const stopAudioBufferSource = source => {
-    source.stop(audioCtx.currentTime);
-    source.disconnect();
-    source.buffer = null;
-    return null;
-}
-
-let prevTime = audioCtx.currentTime;
-const fixAudioContextStuck = async () => {
-    if (audioCtx.state == 'running') {
-        if (prevTime == audioCtx.currentTime) {
-            console.warn('AudioContext stuck');
-            await audioCtx.suspend();
-            await audioCtx.resume();
-        }
-        prevTime = audioCtx.currentTime;    
-    }
-    setTimeout(fixAudioContextStuck, 100);
-}
-setTimeout(fixAudioContextStuck, 100);
-
 class App {
-    constructor() {
-        this.artist = '';
-        this.title = '';
-        this.level = '';
-        this.songLength = 0;
+    isLoading = true;
 
-        this.songBuffers = [];
-        this.drumBuffers = [];
-        this.songSources = [];
-        this.drumSources = [];
-        this.notes = [];
-        this.notesCount = 0;
-        this.highwayLanes = [];
-        this.highwayCount = 0;
-        this.highwayWidth = 0;
-        this.highwayLeft = 0;
+    artist = '';
+    title = '';
+    level = '';
 
-        this.isLoading = true;
-        this.isPlaying = false;
-        this.startTime = 0;
-        this.currentTime = 0;
-        this.head = 0;
-        this.tail = 0;
+    notes = [];
+    head = 0;
+    tail = 0;
 
-        this.init();
-    }
+    highwayLanes = [];
+    highwayCount = 0;
+    highwayWidth = 0;
+    highwayLeft = 0;
+
     init() {
         this.screen = createGraphics(480, 480);
 
         this.seekbar = new Seekbar(this.screen, 0, 460, 480, 20);
         let restart = false;
         this.seekbar.seekStarted = () => {
-            restart = this.isPlaying;
+            restart = this.audio.isPlaying;
             this.pause();
         }
         this.seekbar.seeked = () => {
-            this.currentTime = this.seekbar.value;
-            this.head = 0;
-            this.tail = 0;
+            this.audio.time = this.seekbar.value;
+            this.rewindNotes();
         };
         this.seekbar.seekEnded = () => {
             if (restart) {
                 this.play();
+                restart = false;
             }
-            restart = false;
         }
+
+        this.audio = new Audio();
+        this.audio.init();
     }
 
-    // load
+    // ロード
     async load(rlrr) {
         const m = rlrr.match(/([^/]+)\/([^/]+_(Easy|Medium|Hard|Expert)\.rlrr)/);
         if (!m) {
             throw new Error(`invalid rlrr file name: ${rlrr}`);
         }
-
         const dirname = m[1];
         const filename = m[2];
         this.level = m[3];
 
-        this.songDir = `/songs/${dirname}`;
-        const rlrrFile = `/songs/${dirname}/${filename}`;
-
-        await this.loadRlrr(rlrrFile);
-        this.isLoading = false;
-    }
-    async loadRlrr(rlrrFile) {
-        const response = await fetch(rlrrFile);
+        const rlrrUrl = `/songs/${dirname}/${filename}`;
+        const response = await fetch(rlrrUrl);
         if (!response.ok) {
-            throw new Error(`could not load url: ${rlrrFile}`);
+            throw new Error(`failed to load rlrr: ${rlrrUrl}`);
         }
-        const rlrr = await response.json();
+        const rlrrData = await response.json();
 
-        const metaData = rlrr.recordingMetadata;
+        const metaData = rlrrData.recordingMetadata;
         this.artist = metaData.artist;
         this.title = metaData.title;
-        this.songLength = metaData.length;
+        this.audio.length = metaData.length;
 
         document.title = `${this.title} [${this.level}]`;
-        this.seekbar.max = this.songLength;
+        this.seekbar.max = this.audio.length;
 
-        this.notes = rlrr.events.map(event => {
+        this.notes = rlrrData.events.map(event => {
             const t = Number(event.time) + BLUETOOTH_LATENCY;
             return {
                 drum: event.name.split('_')[1],
@@ -136,7 +90,6 @@ class App {
                 hide: t + NOTE_HIDE_DELAY,
             }
         });
-        this.notesCount = this.notes.length;
 
         const drumSet = ['HiHat', 'Crash15', 'Snare', 'Tom1', 'Tom2', 'FloorTom', 'Crash17', 'Ride17', 'Ride21'];
         const drums = this.notes.map(note => note.drum);
@@ -145,80 +98,51 @@ class App {
         this.highwayWidth = this.highwayCount * 40;
         this.highwayLeft = (480 - this.highwayWidth) / 2;
 
-        const songTrackPromises = rlrr.audioFileData.songTracks.map(track => this.loadTrack(track));
-        const drumTrackPromises = rlrr.audioFileData.drumTracks.map(track => this.loadTrack(track));
-        this.songBuffers = await Promise.all(songTrackPromises);
-        this.drumBuffers = await Promise.all(drumTrackPromises);
-    }
-    async loadTrack(trackFileName) {
-        const url = `${this.songDir}/${trackFileName}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`failed to load track: ${url}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        return audioBuffer;
+        const songUrls = rlrrData.audioFileData.songTracks.map(track => `/songs/${dirname}/${track}`);
+        const drumUrls = rlrrData.audioFileData.drumTracks.map(track => `/songs/${dirname}/${track}`);
+        await this.audio.load(songUrls, drumUrls);
+
+        this.isLoading = false;
     }
 
-    // play
-    async play() {
-        if (!this.isLoading && !this.isPlaying) {
-            if (audioCtx.state == 'suspended') {
-                await audioCtx.resume();
+    // オーディオコントロール
+    play() {
+        if (!this.isLoading && !this.audio.isPlaying) {
+            if (this.audio.isEnded) {
+                this.audio.time = 0;
+                this.rewindNotes();
             }
-            if (this.songLength <= this.currentTime) {
-                this.currentTime = 0;
-                this.head = 0;
-                this.tail = 0;
-                this.seekbar.value = this.currentTime;
-            }
-            this.songSources = this.songBuffers.map(toAudioBufferSource);
-            this.drumSources = this.drumBuffers.map(toAudioBufferSource);
-            this.songSources.forEach(source => source.start(audioCtx.currentTime, this.currentTime));
-            this.drumSources.forEach(source => source.start(audioCtx.currentTime, this.currentTime));
-            this.startTime = audioCtx.currentTime - this.currentTime;
-            this.isPlaying = true;
+            this.audio.play();
         }
     }
-    async pause() {
-        if (this.isPlaying) {
-            this.songSources = this.songSources.map(stopAudioBufferSource);
-            this.drumSources = this.drumSources.map(stopAudioBufferSource);
-            this.isPlaying = false;
-        }
+    pause() {
+        this.audio.pause();
     }
     togglePlay() {
-        if (!this.isPlaying) {
+        if (!this.audio.isPlaying) {
             this.play();
         } else {
             this.pause()
         }
     }
     skip(newTime, continuePlaying) {
-        this.currentTime = newTime;
-        this.seekbar.value = newTime;
-        this.head = 0;
-        this.tail = 0;
-        const restart = this.isPlaying && continuePlaying;
-        this.pause();
-        if (restart) {
-            this.play();
-        }
-    }
-
-    // sync
-    sync() {
-        if (this.isPlaying) {
-            this.currentTime = Math.min(audioCtx.currentTime - this.startTime, this.songLength);
-            this.seekbar.value = this.currentTime;
-            if (this.currentTime == this.songLength) {
-                this.pause();
+        this.audio.time = newTime;
+        this.rewindNotes();
+        if (this.audio.isPlaying && continuePlaying) {
+            this.pause();
+            if (!this.audio.isEnded) {
+                this.play();
             }
         }
     }
 
-    // draw
+    // 時間を進める
+    tick() {
+        this.audio.tick();
+        this.seekbar.value = this.audio.time;
+    }
+
+    // 描画
     draw() {
         this.screen.background(0);
 
@@ -232,7 +156,7 @@ class App {
         }
 
         this.drawTitle();
-        this.seekbar.draw(this.isPlaying);
+        this.seekbar.draw(this.audio.isPlaying);
     }
     drawLoading() {
         this.screen.noStroke();
@@ -257,11 +181,15 @@ class App {
             this.screen.text(this.artist, 4, 24);
         }
     }
+    rewindNotes() {
+        this.head = 0;
+        this.tail = 0;
+    }
     seekVisibleNotes() {
-        while (this.tail < this.notesCount && this.currentTime >= this.notes[this.tail].show) {
+        while (this.tail < this.notes.length && this.audio.time >= this.notes[this.tail].show) {
             this.tail++;
         }
-        while (this.head < this.tail && this.currentTime > this.notes[this.head].hide) {
+        while (this.head < this.tail && this.audio.time > this.notes[this.head].hide) {
             this.head++;
         }
     }
@@ -282,7 +210,7 @@ class App {
     drawNoteGuidelines() {
         const guidelines = {};
         for (let i = this.head; i < this.tail; i++) {
-            if (this.currentTime < this.notes[i].hit) {
+            if (this.audio.time < this.notes[i].hit) {
                 guidelines[this.notes[i].hit] = true;
             }
         }
@@ -291,7 +219,7 @@ class App {
         this.screen.fill(color(64));
         this.screen.rectMode(CENTER);
         for (const hit of Object.keys(guidelines)) {
-            const y = 440 - Math.max(hit - this.currentTime, 0) * 440 / NOTE_VISIBLE_TIME;
+            const y = 440 - Math.max(hit - this.audio.time, 0) * 440 / NOTE_VISIBLE_TIME;
             this.screen.rect(240, y, this.highwayWidth, 1);
         }
     }
@@ -310,11 +238,11 @@ class App {
         this.screen.noStroke();
         this.screen.rectMode(CENTER);
         for (const note of kicks) {
-            const y = 440 - Math.max(note.hit - this.currentTime, 0) * 440 / NOTE_VISIBLE_TIME;
-            const w = this.currentTime < note.hit ? this.highwayWidth : this.highwayWidth + 20;
-            const h = this.currentTime < note.hit ? 6 : 12;
+            const y = 440 - Math.max(note.hit - this.audio.time, 0) * 440 / NOTE_VISIBLE_TIME;
+            const w = this.audio.time < note.hit ? this.highwayWidth : this.highwayWidth + 20;
+            const h = this.audio.time < note.hit ? 6 : 12;
             const c = color(NOTES.Kick.color);
-            const a = 255 - Math.max(this.currentTime - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
+            const a = 255 - Math.max(this.audio.time - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
             c.setAlpha(a);
             this.screen.fill(c);
             this.screen.rect(240, y, w, h);
@@ -325,20 +253,20 @@ class App {
         this.screen.rectMode(CENTER);
         for (const note of others) {
             const x = this.highwayLeft + this.highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
-            const y = 440 - Math.max(note.hit - this.currentTime, 0) * 440 / NOTE_VISIBLE_TIME;
+            const y = 440 - Math.max(note.hit - this.audio.time, 0) * 440 / NOTE_VISIBLE_TIME;
             const c = color(NOTES[note.drum].color);
-            const a = 255 - Math.max(this.currentTime - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
+            const a = 255 - Math.max(this.audio.time - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
             c.setAlpha(a);
             this.screen.fill(c);
             switch (NOTES[note.drum].shape) {
                 case 'circle': {
-                    const r = this.currentTime < note.hit ? 20 : 26;
+                    const r = this.audio.time < note.hit ? 20 : 26;
                     this.screen.circle(x, y, r);
                     break;
                 }
                 case 'rect': {
-                    const h = this.currentTime < note.hit ? 10 : 16;
-                    const w = this.currentTime < note.hit ? 30 : 36;
+                    const h = this.audio.time < note.hit ? 10 : 16;
+                    const w = this.audio.time < note.hit ? 30 : 36;
                     this.screen.rect(x, y, w, h);
                     break;
                 }
@@ -373,7 +301,7 @@ class App {
         }
         if (key == 'ArrowLeft' || key == 'ArrowRight') {
             const skip = key == 'ArrowLeft' ? -5 : 5;
-            const newTime = Math.min(Math.max(this.currentTime + skip, 0), this.songLength);
+            const newTime = Math.min(Math.max(this.audio.time + skip, 0), this.audio.length);
             this.skip(newTime, true);
         }
         if (key == 'Backspace' || key == 'Delete') {

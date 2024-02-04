@@ -9,6 +9,7 @@ function setup() {
     updateCanvasSize();
 
     app = new App();
+    app.init();
 
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
@@ -20,7 +21,7 @@ function setup() {
 function draw() {
     background(32);
 
-    app.sync();
+    app.tick();
     app.draw();
     image(app.screen, viewportX, viewportY, viewportW, viewportH);
 
