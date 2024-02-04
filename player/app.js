@@ -16,6 +16,22 @@ const NOTES = {
     Ride21: { color: 'gold', shape: 'circle' },
 }
 
+let audioCtx = new AudioContext();
+
+const toAudioBufferSource = buffer => {
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    return source;
+}
+
+const stopAudioBufferSource = source => {
+    source.stop(audioCtx.currentTime);
+    source.disconnect();
+    source.buffer = null;
+    return null;
+}
+
 class App {
     constructor() {
         this.artist = '';
@@ -23,8 +39,10 @@ class App {
         this.level = '';
         this.songLength = 0;
 
-        this.songTracks = [];
-        this.drumTracks = [];
+        this.songBuffers = [];
+        this.drumBuffers = [];
+        this.songSources = [];
+        this.drumSources = [];
         this.notes = [];
         this.notesCount = 0;
         this.highwayLanes = [];
@@ -115,37 +133,44 @@ class App {
 
         const songTrackPromises = rlrr.audioFileData.songTracks.map(track => this.loadTrack(track));
         const drumTrackPromises = rlrr.audioFileData.drumTracks.map(track => this.loadTrack(track));
-        this.songTracks = await Promise.all(songTrackPromises);
-        this.drumTracks = await Promise.all(drumTrackPromises);
+        this.songBuffers = await Promise.all(songTrackPromises);
+        this.drumBuffers = await Promise.all(drumTrackPromises);
     }
     async loadTrack(trackFileName) {
-        const player = new Tone.Player().toDestination();
-        return await player.load(`${this.songDir}/${trackFileName}`);
+        const url = `${this.songDir}/${trackFileName}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`failed to load track: ${url}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        return audioBuffer;
     }
 
     // play
     async play() {
-        if (Tone.getContext().state == 'suspended') {
-            await Tone.start();
-        }
         if (!this.isLoading && !this.isPlaying) {
+            if (audioCtx.state == 'suspended') {
+                await audioCtx.resume();
+            }
             if (this.songLength <= this.currentTime) {
                 this.currentTime = 0;
                 this.head = 0;
                 this.tail = 0;
                 this.seekbar.value = this.currentTime;
             }
-            const now = Tone.now();
-            this.songTracks.forEach(track => track.start(now, this.currentTime));
-            this.drumTracks.forEach(track => track.start(now, this.currentTime));
-            this.startTime = now - this.currentTime;
+            this.songSources = this.songBuffers.map(toAudioBufferSource);
+            this.drumSources = this.drumBuffers.map(toAudioBufferSource);
+            this.songSources.forEach(source => source.start(audioCtx.currentTime, this.currentTime));
+            this.drumSources.forEach(source => source.start(audioCtx.currentTime, this.currentTime));
+            this.startTime = audioCtx.currentTime - this.currentTime;
             this.isPlaying = true;
         }
     }
-    pause() {
+    async pause() {
         if (this.isPlaying) {
-            this.songTracks.forEach(track => track.stop());
-            this.drumTracks.forEach(track => track.stop());
+            this.songSources = this.songSources.map(stopAudioBufferSource);
+            this.drumSources = this.drumSources.map(stopAudioBufferSource);
             this.isPlaying = false;
         }
     }
@@ -171,9 +196,9 @@ class App {
     // sync
     sync() {
         if (this.isPlaying) {
-            this.currentTime = Tone.now() - this.startTime;
+            this.currentTime = Math.min(audioCtx.currentTime - this.startTime, this.songLength);
             this.seekbar.value = this.currentTime;
-            if (this.songLength <= this.currentTime) {
+            if (this.currentTime == this.songLength) {
                 this.pause();
             }
         }
