@@ -1,20 +1,3 @@
-const NOTE_VISIBLE_TIME = 1.5;
-const NOTE_HIDE_DELAY = 0.2;
-const BLUETOOTH_LATENCY = 0;
-// const BLUETOOTH_LATENCY = 0.15;
-
-const NOTES = {
-    Kick: { color: 'royalblue', shape: 'bar' },
-    HiHat: { color: 'cyan', shape: 'circle' },
-    Crash15: { color: 'magenta', shape: 'circle' },
-    Snare: { color: 'red', shape: 'rect' },
-    Tom1: { color: 'lightseagreen', shape: 'rect' },
-    Tom2: { color: 'green', shape: 'rect' },
-    FloorTom: { color: 'blueviolet', shape: 'rect' },
-    Crash17: { color: 'orange', shape: 'circle' },
-    Ride17: { color: 'yellow', shape: 'circle' },
-    Ride21: { color: 'gold', shape: 'circle' },
-}
 
 class App {
     isLoading = true;
@@ -23,12 +6,7 @@ class App {
     title = '';
     level = '';
 
-    notes = [];
-    head = 0;
-    tail = 0;
-
     highwayLanes = [];
-    highwayCount = 0;
     highwayWidth = 0;
     highwayLeft = 0;
 
@@ -43,7 +21,7 @@ class App {
         }
         this.seekbar.seeked = () => {
             this.audio.time = this.seekbar.value;
-            this.rewindNotes();
+            this.notes.rewind();
         };
         this.seekbar.seekEnded = () => {
             if (restart) {
@@ -51,6 +29,8 @@ class App {
                 restart = false;
             }
         }
+
+        this.notes = new Notes(this.screen);
 
         this.audio = new Audio();
         this.audio.init();
@@ -81,21 +61,12 @@ class App {
         document.title = `${this.title} [${this.level}]`;
         this.seekbar.max = this.audio.length;
 
-        this.notes = rlrrData.events.map(event => {
-            const t = Number(event.time) + BLUETOOTH_LATENCY;
-            return {
-                drum: event.name.split('_')[1],
-                show: t - NOTE_VISIBLE_TIME,
-                hit: t,
-                hide: t + NOTE_HIDE_DELAY,
-            }
-        });
+        this.notes.init(rlrrData.events);
 
         const drumSet = ['HiHat', 'Crash15', 'Snare', 'Tom1', 'Tom2', 'FloorTom', 'Crash17', 'Ride17', 'Ride21'];
-        const drums = this.notes.map(note => note.drum);
+        const drums = this.notes.drums;
         this.highwayLanes = drumSet.filter(drum => drums.includes(drum));
-        this.highwayCount = this.highwayLanes.length;
-        this.highwayWidth = this.highwayCount * 40;
+        this.highwayWidth = this.highwayLanes.length * 40;
         this.highwayLeft = (480 - this.highwayWidth) / 2;
 
         const songUrls = rlrrData.audioFileData.songTracks.map(track => `/songs/${dirname}/${track}`);
@@ -110,7 +81,7 @@ class App {
         if (!this.isLoading && !this.audio.isPlaying) {
             if (this.audio.isEnded) {
                 this.audio.time = 0;
-                this.rewindNotes();
+                this.notes.rewind();
             }
             this.audio.play();
         }
@@ -127,7 +98,7 @@ class App {
     }
     skip(newTime, continuePlaying) {
         this.audio.time = newTime;
-        this.rewindNotes();
+        this.notes.rewind();
         if (this.audio.isPlaying && continuePlaying) {
             this.pause();
             if (!this.audio.isEnded) {
@@ -149,10 +120,11 @@ class App {
         if (this.isLoading) {
             this.drawLoading();
         } else {
-            this.drawHighway();
-            this.seekVisibleNotes();
-            this.drawNoteGuidelines();
-            this.drawNotes();
+            this.notes.seek(this.audio.time);
+            this.drawHighwayLanes();
+            this.notes.drawGuidelines(this.audio.time, this.highwayWidth);
+            this.drawHighwayGoal();
+            this.notes.drawNotes(this.audio.time, this.highwayLanes, this.highwayLeft, this.highwayWidth);
         }
 
         this.drawTitle();
@@ -181,97 +153,21 @@ class App {
             this.screen.text(this.artist, 4, 24);
         }
     }
-    rewindNotes() {
-        this.head = 0;
-        this.tail = 0;
-    }
-    seekVisibleNotes() {
-        while (this.tail < this.notes.length && this.audio.time >= this.notes[this.tail].show) {
-            this.tail++;
-        }
-        while (this.head < this.tail && this.audio.time > this.notes[this.head].hide) {
-            this.head++;
-        }
-    }
-    drawHighway() {
+    drawHighwayLanes() {
         this.screen.stroke(64);
         this.screen.strokeWeight(1);
         this.screen.fill(color(32));
         this.screen.rectMode(CORNER);
-        for (let i = 0; i < this.highwayCount; i++) {
+        const highwayCount = this.highwayLanes.length;
+        for (let i = 0; i < highwayCount; i++) {
             this.screen.rect(this.highwayLeft + i * 40, 0, 40, 480);
         }
-
+    }
+    drawHighwayGoal() {
         this.screen.noStroke();
         this.screen.fill(color(192));
         this.screen.rectMode(CENTER);
         this.screen.rect(240, 440, this.highwayWidth + 12, 6);
-    }
-    drawNoteGuidelines() {
-        const guidelines = {};
-        for (let i = this.head; i < this.tail; i++) {
-            if (this.audio.time < this.notes[i].hit) {
-                guidelines[this.notes[i].hit] = true;
-            }
-        }
-
-        this.screen.noStroke();
-        this.screen.fill(color(64));
-        this.screen.rectMode(CENTER);
-        for (const hit of Object.keys(guidelines)) {
-            const y = 440 - Math.max(hit - this.audio.time, 0) * 440 / NOTE_VISIBLE_TIME;
-            this.screen.rect(240, y, this.highwayWidth, 1);
-        }
-    }
-    drawNotes() {
-        const kicks = [];
-        const others = [];
-
-        for (let i = this.head; i < this.tail; i++) {
-            if (this.notes[i].drum == 'Kick') {
-                kicks.push(this.notes[i]);
-            } else {
-                others.push(this.notes[i]);
-            }
-        }
-
-        this.screen.noStroke();
-        this.screen.rectMode(CENTER);
-        for (const note of kicks) {
-            const y = 440 - Math.max(note.hit - this.audio.time, 0) * 440 / NOTE_VISIBLE_TIME;
-            const w = this.audio.time < note.hit ? this.highwayWidth : this.highwayWidth + 20;
-            const h = this.audio.time < note.hit ? 6 : 12;
-            const c = color(NOTES.Kick.color);
-            const a = 255 - Math.max(this.audio.time - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
-            c.setAlpha(a);
-            this.screen.fill(c);
-            this.screen.rect(240, y, w, h);
-        }
-
-        this.screen.stroke(255);
-        this.screen.strokeWeight(1);
-        this.screen.rectMode(CENTER);
-        for (const note of others) {
-            const x = this.highwayLeft + this.highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
-            const y = 440 - Math.max(note.hit - this.audio.time, 0) * 440 / NOTE_VISIBLE_TIME;
-            const c = color(NOTES[note.drum].color);
-            const a = 255 - Math.max(this.audio.time - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
-            c.setAlpha(a);
-            this.screen.fill(c);
-            switch (NOTES[note.drum].shape) {
-                case 'circle': {
-                    const r = this.audio.time < note.hit ? 20 : 26;
-                    this.screen.circle(x, y, r);
-                    break;
-                }
-                case 'rect': {
-                    const h = this.audio.time < note.hit ? 10 : 16;
-                    const w = this.audio.time < note.hit ? 30 : 36;
-                    this.screen.rect(x, y, w, h);
-                    break;
-                }
-            }
-        }
     }
 
     // cursor
