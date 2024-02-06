@@ -62,9 +62,27 @@ class App {
 
         this.notes.init(rlrrData.events);
 
-        const drumSet = ['HiHat', 'Crash15', 'Snare', 'Tom1', 'Tom2', 'FloorTom', 'Crash17', 'Ride17', 'Ride21'];
-        const drums = this.notes.drums;
-        this.highwayLanes = drumSet.filter(drum => drums.includes(drum));
+        const laneOrder = [
+            'BP_HiHat_C',
+            'BP_Crash15_C',
+            'BP_Snare_C',
+            'BP_Tom1_C',
+            'BP_Tom2_C',
+            'BP_FloorTom_C',
+            'BP_Crash17_C',
+            'BP_Ride17_C',
+            'BP_Ride21_C'
+        ];
+
+        const lanes = rlrrData.instruments
+            .sort((a, b) => a.location[0] - b.location[0])
+            .map(v => { return {name: v.name, order: laneOrder.indexOf(v.class)}})
+            .filter(v => v.order != -1)
+            .sort((a, b) => a.order - b.order)
+            .map(v => v.name);
+
+        const requiredDrumSet = this.notes.requiredDrumSet;
+        this.highwayLanes = lanes.filter(drum => requiredDrumSet.has(drum));
         this.highwayWidth = this.highwayLanes.length * 40;
         this.highwayLeft = (480 - this.highwayWidth) / 2;
 

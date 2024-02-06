@@ -76,8 +76,10 @@ class Notes {
         this.notes = events.map(event => new Note(event.name, event.time));
     }
 
-    get drums() {
-        return this.notes.map(note => note.drum);
+    get requiredDrumSet() {
+        const drumSet = new Set();
+        this.notes.forEach(note => drumSet.add(note.name));
+        return drumSet;
     }
 
     tick(audioTime, latency) {
@@ -129,7 +131,7 @@ class Notes {
         this.screen.strokeWeight(1);
         this.screen.rectMode(CENTER);
         for (const note of others) {
-            const x = highwayLeft + highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
+            const x = highwayLeft + highwayLanes.findIndex(name => name == note.name) * 40 + 20;
             const y = note.progress * 440;
             this.screen.fill(note.color);
             switch (NOTES[note.drum].shape) {
