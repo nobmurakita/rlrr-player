@@ -1,6 +1,7 @@
 
 class Audio {
     audioCtx = null;
+    latency = 0;
 
     length = 0;
     songBuffers = [];
@@ -91,6 +92,7 @@ class Audio {
 
     tick() {
         if (this.isPlaying) {
+            this.latency = this.audioCtx.baseLatency + this.audioCtx.outputLatency;
             this.time = Math.min(this.audioCtx.currentTime - this.startTime, this.length);
             if (this.isEnded) {
                 this.pause();

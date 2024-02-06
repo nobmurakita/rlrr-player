@@ -1,7 +1,5 @@
 const NOTE_VISIBLE_TIME = 1.5;
-const NOTE_HIDE_DELAY = 0.2;
-const BLUETOOTH_LATENCY = 0;
-// const BLUETOOTH_LATENCY = 0.15;
+const NOTE_AFTERGLOW_TIME = 0.2;
 
 const NOTES = {
     Kick: { color: 'royalblue', shape: 'bar' },
@@ -16,106 +14,134 @@ const NOTES = {
     Ride21: { color: 'gold', shape: 'circle' },
 }
 
+class Note {
+    audioTime = 0;
+    latency = 0;
+
+    constructor(name, time) {
+        this.name = name;
+        this.drum = name.split('_')[1];
+
+        const t = Number(time);
+        this._showAt = t - NOTE_VISIBLE_TIME;
+        this._fireAt = t;
+        this._hideAt = t + NOTE_AFTERGLOW_TIME;
+    }
+
+    get showAt() {
+        return this._showAt + this.latency;
+    }
+
+    get fireAt() {
+        return this._fireAt + this.latency;
+    }
+
+    get hideAt() {
+        return this._hideAt + this.latency;
+    }
+
+    get isVisible() {
+        return this.showAt <= this.audioTime && this.audioTime <= this.hideAt;
+    }
+
+    get isAlive() {
+        return this.audioTime < this.fireAt;
+    }
+
+    get progress() {
+        return Math.min(this.audioTime - this.showAt, NOTE_VISIBLE_TIME) / NOTE_VISIBLE_TIME;
+    }
+
+    get afterglow() {
+        return Math.min(this.audioTime - this.fireAt, NOTE_AFTERGLOW_TIME) / NOTE_AFTERGLOW_TIME;
+    }
+
+    get color() {
+        const c = color(NOTES[this.drum].color);
+        c.setAlpha(255 - this.afterglow * 255);
+        return c;
+    }
+}
+
 class Notes {
+    audioTime = 0;
     notes = [];
-    head = 0;
-    tail = 0;
+    visibleNotes = [];
 
     constructor(screen) {
         this.screen = screen;
     }
 
     init(events) {
-        this.notes = events.map(event => {
-            const t = Number(event.time) + BLUETOOTH_LATENCY;
-            return {
-                drum: event.name.split('_')[1],
-                show: t - NOTE_VISIBLE_TIME,
-                hit: t,
-                hide: t + NOTE_HIDE_DELAY,
-            }
-        });
+        this.notes = events.map(event => new Note(event.name, event.time));
     }
 
     get drums() {
         return this.notes.map(note => note.drum);
     }
 
-    rewind() {
-        this.head = 0;
-        this.tail = 0;
+    tick(audioTime, latency) {
+        this.audioTime = audioTime;
+        this.notes.forEach(note => {
+            note.audioTime = audioTime;
+            note.latency = latency;
+        });
+        this.visibleNotes = this.notes.filter(note => note.isVisible);
     }
 
-    seek(audioTime) {
-        while (this.tail < this.notes.length && audioTime >= this.notes[this.tail].show) {
-            this.tail++;
-        }
-        while (this.head < this.tail && audioTime > this.notes[this.head].hide) {
-            this.head++;
-        }
-    }
-
-    drawGuidelines(audioTime, highwayWidth) {
+    drawGuidelines(highwayWidth) {
         const guidelines = {};
-        for (let i = this.head; i < this.tail; i++) {
-            if (audioTime < this.notes[i].hit) {
-                guidelines[this.notes[i].hit] = true;
+        for (const note of this.visibleNotes) {
+            if (note.isAlive) {
+                guidelines[note.progress] = true;
             }
         }
 
         this.screen.noStroke();
         this.screen.fill(color(64));
         this.screen.rectMode(CENTER);
-        for (const hit of Object.keys(guidelines)) {
-            const y = 440 - Math.max(hit - audioTime, 0) * 440 / NOTE_VISIBLE_TIME;
-            this.screen.rect(240, y, highwayWidth, 1);
+        for (const progress of Object.keys(guidelines)) {
+            this.screen.rect(240, progress * 440, highwayWidth, 1);
         }
     }
 
-    drawNotes(audioTime, highwayLanes, highwayLeft, highwayWidth) {
+    drawNotes(highwayLanes, highwayLeft, highwayWidth) {
         const kicks = [];
         const others = [];
 
-        for (let i = this.head; i < this.tail; i++) {
-            if (this.notes[i].drum == 'Kick') {
-                kicks.push(this.notes[i]);
+        for (const note of this.visibleNotes) {
+            if (note.drum == 'Kick') {
+                kicks.push(note);
             } else {
-                others.push(this.notes[i]);
+                others.push(note);
             }
         }
 
         this.screen.noStroke();
         this.screen.rectMode(CENTER);
         for (const note of kicks) {
-            const y = 440 - Math.max(note.hit - audioTime, 0) * 440 / NOTE_VISIBLE_TIME;
-            const w = audioTime < note.hit ? highwayWidth : highwayWidth + 20;
-            const h = audioTime < note.hit ? 6 : 12;
-            const c = color(NOTES.Kick.color);
-            const a = 255 - Math.max(audioTime - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
-            c.setAlpha(a);
-            this.screen.fill(c);
+            const y = note.progress * 440;
+            const [w, h] = note.isAlive ? [highwayWidth, 6] : [highwayWidth + 20, 12];
+            this.screen.fill(note.color);
             this.screen.rect(240, y, w, h);
         }
 
-        this.screen.stroke(255);
         this.screen.strokeWeight(1);
         this.screen.rectMode(CENTER);
         for (const note of others) {
             const x = highwayLeft + highwayLanes.findIndex(name => name == note.drum) * 40 + 20;
-            const y = 440 - Math.max(note.hit - audioTime, 0) * 440 / NOTE_VISIBLE_TIME;
-            const c = color(NOTES[note.drum].color);
-            const a = 255 - Math.max(audioTime - note.hit, 0) * 255 / NOTE_HIDE_DELAY;
-            c.setAlpha(a);
-            this.screen.fill(c);
+            const y = note.progress * 440;
+            this.screen.fill(note.color);
             switch (NOTES[note.drum].shape) {
                 case 'circle': {
-                    const r = audioTime < note.hit ? 20 : 26;
+                    const [r, s] = note.isAlive ? [20, 'white'] : [26, 'yellow'];
+                    this.screen.stroke(s);
                     this.screen.circle(x, y, r);
                     break;
                 }
                 case 'rect': {
-                    const h = audioTime < note.hit ? 10 : 16;
-                    const w = audioTime < note.hit ? 30 : 36;
+                    const [w, h, s] = note.isAlive ? [30, 10, 'white'] : [36, 16, 'yellow'];
+                    this.screen.stroke(s);
                     this.screen.rect(x, y, w, h);
                     break;
                 }

@@ -21,7 +21,6 @@ class App {
         }
         this.seekbar.seeked = () => {
             this.audio.time = this.seekbar.value;
-            this.notes.rewind();
         };
         this.seekbar.seekEnded = () => {
             if (restart) {
@@ -81,7 +80,6 @@ class App {
         if (!this.isLoading && !this.audio.isPlaying) {
             if (this.audio.isEnded) {
                 this.audio.time = 0;
-                this.notes.rewind();
             }
             this.audio.play();
         }
@@ -98,7 +96,6 @@ class App {
     }
     skip(newTime, continuePlaying) {
         this.audio.time = newTime;
-        this.notes.rewind();
         if (this.audio.isPlaying && continuePlaying) {
             this.pause();
             if (!this.audio.isEnded) {
@@ -110,6 +107,7 @@ class App {
     // 時間を進める
     tick() {
         this.audio.tick();
+        this.notes.tick(this.audio.time, this.audio.latency);
         this.seekbar.value = this.audio.time;
     }
 
@@ -120,11 +118,10 @@ class App {
         if (this.isLoading) {
             this.drawLoading();
         } else {
-            this.notes.seek(this.audio.time);
             this.drawHighwayLanes();
-            this.notes.drawGuidelines(this.audio.time, this.highwayWidth);
+            this.notes.drawGuidelines(this.highwayWidth);
             this.drawHighwayGoal();
-            this.notes.drawNotes(this.audio.time, this.highwayLanes, this.highwayLeft, this.highwayWidth);
+            this.notes.drawNotes(this.highwayLanes, this.highwayLeft, this.highwayWidth);
         }
 
         this.drawTitle();
