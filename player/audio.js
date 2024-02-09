@@ -15,21 +15,6 @@ class Audio {
 
     init() {
         this.audioCtx = new AudioContext();
-
-        // AudioContext の stuck 対策
-        let prevContextTime = this.audioCtx.currentTime;
-        const fixAudioContextStuck = async () => {
-            if (this.audioCtx.state == 'running') {
-                if (prevContextTime == this.audioCtx.currentTime) {
-                    console.warn('AudioContext stuck');
-                    await this.audioCtx.suspend();
-                    await this.audioCtx.resume();
-                }
-                prevContextTime = this.audioCtx.currentTime;    
-            }
-            setTimeout(fixAudioContextStuck, 100);
-        }
-        setTimeout(fixAudioContextStuck, 100);
     }
 
     get isEnded() {
@@ -54,11 +39,14 @@ class Audio {
         return audioBuffer;
     }
 
-    play() {
+    async play() {
         if (!this.isPlaying) {
+            await this.audioCtx.close();
+            this.audioCtx = new AudioContext();
             if (this.audioCtx.state == 'suspended') {
-                this.audioCtx.resume();
+                await this.audioCtx.resume();
             }
+
             this.songSources = this.songBuffers.map(buffer => this.toAudioBufferSource(buffer));
             this.drumSources = this.drumBuffers.map(buffer => this.toAudioBufferSource(buffer));
             this.songSources.forEach(source => source.start(this.audioCtx.currentTime, this.time));
