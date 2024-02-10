@@ -18,7 +18,7 @@ class Audio {
     }
 
     get isEnded() {
-        return this.length <= this.time;
+        return this.length + this.latency <= this.time;
     }
 
     async load(songUrls, drumUrls) {
@@ -81,7 +81,7 @@ class Audio {
     tick() {
         if (this.isPlaying) {
             this.latency = this.audioCtx.baseLatency + this.audioCtx.outputLatency;
-            this.time = Math.min(this.audioCtx.currentTime - this.startTime, this.length);
+            this.time = Math.min(this.audioCtx.currentTime - this.startTime, this.length + this.latency);
             if (this.isEnded) {
                 this.pause();
             }

@@ -60,7 +60,7 @@ class App {
         document.title = `${this.title} [${this.level}]`;
         this.seekbar.max = this.audio.length;
 
-        this.notes.init(rlrrData.events);
+        this.notes.init(rlrrData.events, rlrrData.bpmEvents, this.audio.length);
 
         const laneOrder = [
             'BP_HiHat_C',
