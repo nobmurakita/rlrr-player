@@ -1,6 +1,7 @@
 
 class Audio {
     audioCtx = null;
+    latencies = [];
     latency = 0;
 
     length = 0;
@@ -80,7 +81,13 @@ class Audio {
 
     tick() {
         if (this.isPlaying) {
-            this.latency = this.audioCtx.baseLatency + this.audioCtx.outputLatency;
+            // 直近10フレームのレイテンシーの平均を取る
+            this.latencies.push(this.audioCtx.baseLatency + this.audioCtx.outputLatency);
+            if (this.latencies.length > 10) {
+                this.latencies.shift();
+            }
+            this.latency = this.latencies.reduce((a, b) => a + b, 0) / this.latencies.length;
+
             this.time = Math.min(this.audioCtx.currentTime - this.startTime, this.length + this.latency);
             if (this.isEnded) {
                 this.pause();
