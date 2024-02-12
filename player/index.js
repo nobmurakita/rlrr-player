@@ -4,7 +4,7 @@ let viewportY = 0;
 let viewportW = 480;
 let viewportH = 480;
 
-function setup() {
+async function setup() {
     app = new App();
     app.init();
 
@@ -24,6 +24,10 @@ function setup() {
         app.mouseReleased(toAppX(mouseX), toAppY(mouseY));
     });
 
+    document.getElementById('masterVolume').value = Math.floor(app.audio.masterGainNode.gain.value * 100)
+    document.getElementById('masterVolume').addEventListener('input', event => {
+        app.audio.masterGainNode.gain.value = event.target.value / 100;
+    })
     document.getElementById('songVolume').value = Math.floor(app.audio.songGainNode.gain.value * 100)
     document.getElementById('songVolume').addEventListener('input', event => {
         app.audio.songGainNode.gain.value = event.target.value / 100;
@@ -45,7 +49,11 @@ function setup() {
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
     if (rlrr) {
-        app.load(rlrr);
+        await app.load(rlrr);
+        if (app.audio.drumBuffers.length == 0) {
+            document.getElementById('drumVolume').value = 0;
+            document.getElementById('drumVolume').disabled = true;
+        }
     }
 }
 

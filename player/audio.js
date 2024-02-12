@@ -14,6 +14,7 @@ const NOTE_SPRITE = {
 
 class Audio {
     audioCtx = null;
+    masterGainNode = null;
     songGainNode = null;
     drumGainNode = null;
     noteGainNode = null;
@@ -33,9 +34,11 @@ class Audio {
 
     init() {
         this.audioCtx = new AudioContext();
+        this.masterGainNode = this.audioCtx.createGain();
         this.songGainNode = this.audioCtx.createGain();
         this.drumGainNode = this.audioCtx.createGain();
         this.noteGainNode = this.audioCtx.createGain();
+        this.masterGainNode.gain.value = 0.5;
         this.songGainNode.gain.value = 0.5;
         this.drumGainNode.gain.value = 0.5;
         this.noteGainNode.gain.value = 0.5;
@@ -80,7 +83,7 @@ class Audio {
     toAudioBufferSource(buffer, gainNode) {
         const source = this.audioCtx.createBufferSource();
         source.buffer = buffer;
-        source.connect(gainNode).connect(this.audioCtx.destination);
+        source.connect(gainNode).connect(this.masterGainNode).connect(this.audioCtx.destination);
         return source;
     }
 
