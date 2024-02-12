@@ -36,6 +36,11 @@ function setup() {
     document.getElementById('noteVolume').addEventListener('input', event => {
         app.audio.noteGainNode.gain.value = event.target.value / 100;
     })
+    document.getElementById('volumes').addEventListener('mouseleave', () => {
+        if (document.activeElement != document.body) {
+            document.activeElement.blur();
+        }
+    })
 
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
