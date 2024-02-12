@@ -5,11 +5,37 @@ let viewportW = 480;
 let viewportH = 480;
 
 function setup() {
-    createCanvas(0, 0);
-    updateCanvasSize();
-
     app = new App();
     app.init();
+
+    const canvas = createCanvas(0, 0);
+    updateCanvasSize();
+
+    canvas.mouseClicked(() => {
+        app.mouseClicked(toAppX(mouseX), toAppY(mouseY));
+    });
+    canvas.mousePressed(() => {
+        app.mousePressed(toAppX(mouseX), toAppY(mouseY));
+    });
+    canvas.mouseMoved(() => {
+        app.mouseDragged(toAppX(mouseX), toAppY(mouseY));
+    });
+    canvas.mouseReleased(() => {
+        app.mouseReleased(toAppX(mouseX), toAppY(mouseY));
+    });
+
+    document.getElementById('songVolume').value = Math.floor(app.audio.songGainNode.gain.value * 100)
+    document.getElementById('songVolume').addEventListener('input', event => {
+        app.audio.songGainNode.gain.value = event.target.value / 100;
+    })
+    document.getElementById('drumVolume').value = Math.floor(app.audio.drumGainNode.gain.value * 100)
+    document.getElementById('drumVolume').addEventListener('input', event => {
+        app.audio.drumGainNode.gain.value = event.target.value / 100;
+    })
+    document.getElementById('noteVolume').value = Math.floor(app.audio.noteGainNode.gain.value * 100)
+    document.getElementById('noteVolume').addEventListener('input', event => {
+        app.audio.noteGainNode.gain.value = event.target.value / 100;
+    })
 
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
@@ -28,32 +54,16 @@ function draw() {
     app.cursor(toAppX(mouseX), toAppY(mouseY));
 }
 
-function keyPressed() {
-    app.keyPressed(key);
-}
-
-function mouseClicked() {
-    app.mouseClicked(toAppX(mouseX), toAppY(mouseY));
-}
-
-function mousePressed() {
-    app.mousePressed(toAppX(mouseX), toAppY(mouseY));
-}
-
-function mouseDragged() {
-    app.mouseDragged(toAppX(mouseX), toAppY(mouseY));
-}
-
-function mouseReleased() {
-    app.mouseReleased(toAppX(mouseX), toAppY(mouseY));
-}
-
 function toAppX(x) {
     return (x - viewportX) / viewportW * 480;
 }
 
 function toAppY(y) {
     return (y - viewportY) / viewportH * 480;
+}
+
+function keyPressed() {
+    app.keyPressed(key);
 }
 
 function windowResized() {
@@ -67,4 +77,7 @@ function updateCanvasSize() {
     viewportY = 0;
     viewportW = wmin;
     viewportH = wmin;
+
+    const volumes = document.getElementById('volumes');
+    volumes.style.right = `${windowWidth - (viewportX + viewportW)}px`;
 }

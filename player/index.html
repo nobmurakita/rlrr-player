@@ -10,9 +10,50 @@
     <style>
       body {
         margin: 0;
+        user-select: none;
+      }
+      #volumes {
+        position: absolute;
+        top: 0;
+        right: 0;
+        color: #fff;
+        background-color: #333;
+        border: #fff solid 2px;
+        opacity: 0.2;
+        margin: 4px;
+        padding: 4px;
+      }
+      #volumes:hover {
+        opacity: 0.9;
+      }
+      #volumes label {
+        display: inline-block;
+        width: 60px;
+        font-size: 0.7rem;
+        text-align: right;
+        vertical-align: middle;
+      }
+      #volumes input[type=range] {
+        width: 100px;
+        vertical-align: middle;
       }
     </style>
   </head>
   <body>
+    <main></main>
+    <div id="volumes">
+      <div>
+        <label for="song">Song Vol</label>
+        <input type="range" id="songVolume" name="song" min="0" max="100"/>  
+      </div>
+      <div>
+        <label for="drum">Drum Vol</label>
+        <input type="range" id="drumVolume" name="drum" min="0" max="100"/>
+      </div>
+      <div>
+        <label for="note">Note Vol</label>
+        <input type="range" id="noteVolume" name="note" min="0" max="100"/>
+      </div>
+    </div>
   </body>
 </html>
