@@ -118,7 +118,7 @@ class App {
         if (this.audio.isPlaying && continuePlaying) {
             this.pause();
             if (!this.audio.isEnded) {
-                this.play();
+                setTimeout(() => this.play(), 1000 / 60);
             }
         }
     }
