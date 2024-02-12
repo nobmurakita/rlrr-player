@@ -30,6 +30,7 @@ class App {
         }
 
         this.notes = new Notes(this.screen);
+        this.notes.onSound = instrument => this.audio.soundNote(instrument);
 
         this.audio = new Audio();
         this.audio.init();
@@ -125,7 +126,7 @@ class App {
     // 時間を進める
     tick() {
         this.audio.tick();
-        this.notes.tick(this.audio.time, this.audio.latency);
+        this.notes.tick(this.audio.time, this.audio.latency, this.audio.isPlaying);
         this.seekbar.value = this.audio.time;
     }
 

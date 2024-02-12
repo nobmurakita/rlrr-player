@@ -1,6 +1,23 @@
 
+const NOTE_SPRITE = {
+    Kick: [0, 0.9],
+    HiHat: [1, 0.9],
+    Snare: [2, 0.9],
+    Tom1: [3, 0.9],
+    Tom2: [4, 0.9],
+    FloorTom: [5, 0.9],
+    Ride17: [6, 1.9],
+    Ride21: [8, 1.9],
+    Crash15: [10, 3.9],
+    Crash17: [14, 3.9],
+};
+
 class Audio {
     audioCtx = null;
+    songGainNode = null;
+    drumGainNode = null;
+    noteGainNode = null;
+
     latencies = [];
     latency = 0;
 
@@ -16,6 +33,12 @@ class Audio {
 
     init() {
         this.audioCtx = new AudioContext();
+        this.songGainNode = this.audioCtx.createGain();
+        this.drumGainNode = this.audioCtx.createGain();
+        this.noteGainNode = this.audioCtx.createGain();
+        this.songGainNode.gain.value = 0.5;
+        this.drumGainNode.gain.value = 0.5;
+        this.noteGainNode.gain.value = 0.5;
     }
 
     get isEnded() {
@@ -23,14 +46,14 @@ class Audio {
     }
 
     async load(songUrls, drumUrls) {
-        const songTrackPromises = songUrls.map(url => this.loadTrack(url));
-        const drumTrackPromises = drumUrls.map(url => this.loadTrack(url));
+        const songTrackPromises = songUrls.map(url => this.loadAudio(url));
+        const drumTrackPromises = drumUrls.map(url => this.loadAudio(url));
         this.songBuffers = await Promise.all(songTrackPromises);
         this.drumBuffers = await Promise.all(drumTrackPromises);
-        this.time = 0;
+        this.noteBuffer = await this.loadAudio('/player/noteSprite.ogg');
     }
 
-    async loadTrack(url) {
+    async loadAudio(url) {
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`failed to load track: ${url}`);
@@ -42,14 +65,11 @@ class Audio {
 
     async play() {
         if (!this.isPlaying) {
-            await this.audioCtx.close();
-            this.audioCtx = new AudioContext();
             if (this.audioCtx.state == 'suspended') {
                 await this.audioCtx.resume();
             }
-
-            this.songSources = this.songBuffers.map(buffer => this.toAudioBufferSource(buffer));
-            this.drumSources = this.drumBuffers.map(buffer => this.toAudioBufferSource(buffer));
+            this.songSources = this.songBuffers.map(buffer => this.toAudioBufferSource(buffer, this.songGainNode));
+            this.drumSources = this.drumBuffers.map(buffer => this.toAudioBufferSource(buffer, this.drumGainNode));
             this.songSources.forEach(source => source.start(this.audioCtx.currentTime, this.time));
             this.drumSources.forEach(source => source.start(this.audioCtx.currentTime, this.time));
             this.startTime = this.audioCtx.currentTime - this.time;
@@ -57,10 +77,10 @@ class Audio {
         }
     }
 
-    toAudioBufferSource(buffer) {
+    toAudioBufferSource(buffer, gainNode) {
         const source = this.audioCtx.createBufferSource();
         source.buffer = buffer;
-        source.connect(this.audioCtx.destination);
+        source.connect(gainNode).connect(this.audioCtx.destination);
         return source;
     }
 
@@ -77,6 +97,16 @@ class Audio {
         source.disconnect();
         source.buffer = null;
         return null;
+    }
+
+    soundNote(drum) {
+        const [offset, duration] = NOTE_SPRITE[drum];
+        const source = this.toAudioBufferSource(this.noteBuffer, this.noteGainNode);
+        source.start(this.audioCtx.currentTime, offset, duration);
+        setTimeout(() => {
+            source.disconnect();
+            source.buffer = null;
+        }, duration * 1000);
     }
 
     tick() {

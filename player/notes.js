@@ -17,10 +17,11 @@ const NOTES = {
 class Note {
     audioTime = 0;
     latency = 0;
+    sounded = false;
 
     constructor(name, time) {
         this.name = name;
-        this.drum = name.split('_')[1];
+        this.instrument = name.split('_')[1];
 
         const t = Number(time);
         this._showAt = t - NOTE_VISIBLE_TIME;
@@ -34,6 +35,10 @@ class Note {
 
     get fireAt() {
         return this._fireAt + this.latency;
+    }
+
+    get soundAt() {
+        return this._fireAt;
     }
 
     get hideAt() {
@@ -57,7 +62,7 @@ class Note {
     }
 
     get color() {
-        const c = color(NOTES[this.drum].color);
+        const c = color(NOTES[this.instrument].color);
         c.setAlpha(255 - this.afterglow * 255);
         return c;
     }
@@ -100,6 +105,7 @@ class Notes {
     visibleNotes = [];
     guides = [];
     visibleGuides = [];
+    onSound = instrument => console.log(instrument);
 
     constructor(screen) {
         this.screen = screen;
@@ -140,7 +146,7 @@ class Notes {
         return drumSet;
     }
 
-    tick(audioTime, latency) {
+    tick(audioTime, latency, isPlaying) {
         this.audioTime = audioTime;
 
         this.notes.forEach(note => {
@@ -154,6 +160,17 @@ class Notes {
             guide.latency = latency;
         });
         this.visibleGuides = this.guides.filter(guide => guide.isVisible);
+
+        if (isPlaying) {
+            this.visibleNotes.forEach(note => {
+                if (!note.sounded && note.soundAt <= this.audioTime) {
+                    this.onSound(note.instrument);
+                    note.sounded = true;
+                }
+            })
+        } else {
+            this.notes.forEach(note => note.sounded = (note.soundAt <= this.audioTime));
+        }
     }
 
     drawGuidelines(highwayWidth) {
@@ -171,7 +188,7 @@ class Notes {
         const others = [];
 
         for (const note of this.visibleNotes) {
-            if (note.drum == 'Kick') {
+            if (note.instrument == 'Kick') {
                 kicks.push(note);
             } else {
                 others.push(note);
@@ -193,7 +210,7 @@ class Notes {
             const x = highwayLeft + highwayLanes.findIndex(name => name == note.name) * 40 + 20;
             const y = note.progress * 440;
             this.screen.fill(note.color);
-            switch (NOTES[note.drum].shape) {
+            switch (NOTES[note.instrument].shape) {
                 case 'circle': {
                     const [r, s] = note.isAlive ? [20, 'white'] : [26, 'yellow'];
                     this.screen.stroke(s);
