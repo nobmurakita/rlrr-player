@@ -9,6 +9,36 @@ const { renderFile } = require('ejs');
 
 let server = null;
 
+const getSongs = async (songsDir) => {
+  if (!songsDir) {
+    return [];
+  }
+
+  const rlrrFiles = await glob(`${songsDir}/*/*.rlrr`);
+
+  const songs = await Promise.all(rlrrFiles.map(async (rlrrFile) => {
+    const rlrr = JSON.parse(await readFile(rlrrFile));
+    const metaData = rlrr.recordingMetadata;
+    const m = rlrrFile.match(/^.*_(Easy|Medium|Hard|Expert)\.rlrr$/);
+    const level = m[1];
+    const levelNum = ['Easy', 'Medium', 'Hard', 'Expert'].indexOf(level);
+    return {
+      artist: metaData.artist,
+      title: metaData.title,
+      level: level,
+      levelNum: levelNum,
+      playerLink: `/player?rlrr=${encodeURI(relative(songsDir, rlrrFile))}`,
+    };
+  }));
+
+  songs
+    .sort((a, b) => a.levelNum - b.levelNum)
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .sort((a, b) => a.artist.localeCompare(b.artist));
+
+  return songs;
+};
+
 exports.createServer = async (resourcesPath, songsDir) => {
   if (server) {
     server.close();
@@ -18,38 +48,16 @@ exports.createServer = async (resourcesPath, songsDir) => {
   const app = new Hono();
 
   app.get('/', async (c) => {
-    let songs = [];
-    if (songsDir) {
-      const rlrrFiles = await glob(`${songsDir}/*/*.rlrr`);
-
-      songs = await Promise.all(rlrrFiles.map(async (rlrrFile) => {
-        const rlrr = JSON.parse(await readFile(rlrrFile));
-        const metaData = rlrr.recordingMetadata;
-        const m = rlrrFile.match(/^.*_(Easy|Medium|Hard|Expert)\.rlrr$/);
-        const level = m[1];
-        const levelNum = ['Easy', 'Medium', 'Hard', 'Expert'].indexOf(level);
-        return {
-          artist: metaData.artist,
-          title: metaData.title,
-          level: level,
-          levelNum: levelNum,
-          playerLink: `/player?rlrr=${encodeURI(relative(songsDir, rlrrFile))}`,
-        };
-      }));
-
-      songs.sort((a, b) => {
-        aa = [a.artist, a.title, a.levelNum].join('|').toUpperCase();
-        bb = [b.artist, b.title, b.levelNum].join('|').toUpperCase();
-        return aa == bb ? 0 : (aa < bb ? -1 : 1);
-      });
-    }
-
-    return c.html(renderFile(resolve(resourcesPath, 'index.ejs'), { songsDir, songs }));
+    const songs = await getSongs(songsDir);
+    const templateFile = resolve(resourcesPath, 'index.ejs');
+    return c.html(renderFile(templateFile, { songsDir, songs }));
   })
 
-  app.use('/player/*', serveStatic({ root: resourcesPath }));
-
   if (songsDir) {
+    app.use('/player/*', serveStatic({
+      root: resourcesPath
+    }));
+
     app.use('/songs/*', serveStatic({
       root: relative('.', songsDir),
       rewriteRequestPath: (path) => path.replace(/^\/songs/, ''),
