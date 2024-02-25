@@ -4,18 +4,50 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build:mac": "electron-builder --mac --universal --publish=never",
+    "build:win": "electron-builder --win --x64 --publish=never"
+  },
+  "build": {
+    "appId": "io.github.nobmurakita.rlrr-player",
+    "artifactName": "${productName}-${version}-${os}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "server.js",
+      "package.json",
+      "package-lock.json"
+    ],
+    "extraResources": [
+      "index.ejs",
+      "player/*"
+    ],
+    "mac": {
+      "electronLanguages": [
+        "ja"
+      ],
+      "target": "zip"
+    },
+    "win": {
+      "electronLanguages": [
+        "ja"
+      ],
+      "target": "zip"
+    }
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@hono/node-server": "^1.5.0",
-    "dotenv": "^16.4.1",
     "ejs": "^3.1.9",
+    "electron-store": "^8.1.0",
     "glob": "^10.3.10",
     "hono": "^3.12.8"
   },
   "devDependencies": {
-    "electron": "^28.2.3"
+    "electron": "^28.2.3",
+    "electron-builder": "^24.12.0"
   }
 }
