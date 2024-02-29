@@ -22,12 +22,13 @@ const getSongs = async (songsDir) => {
     const m = rlrrFile.match(/^.*_(Easy|Medium|Hard|Expert)\.rlrr$/);
     const level = m[1];
     const levelNum = ['Easy', 'Medium', 'Hard', 'Expert'].indexOf(level);
+    const rlrrQueryParam = relative(songsDir, rlrrFile).replace(/\\/g, '/');
     return {
       artist: metaData.artist,
       title: metaData.title,
       level: level,
       levelNum: levelNum,
-      playerLink: `/player?rlrr=${encodeURI(relative(songsDir, rlrrFile))}`,
+      playerLink: `/player?rlrr=${encodeURI(rlrrQueryParam)}`,
     };
   }));
 
