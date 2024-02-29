@@ -55,7 +55,7 @@ exports.createServer = async (resourcesPath, songsDir) => {
 
   if (songsDir) {
     app.use('/player/*', serveStatic({
-      root: resourcesPath
+      root: relative('.', resourcesPath),
     }));
 
     app.use('/songs/*', serveStatic({
