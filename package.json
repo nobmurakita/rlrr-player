@@ -16,13 +16,14 @@
     },
     "files": [
       "main.js",
+      "preload.js",
       "server.js",
       "package.json",
       "package-lock.json"
     ],
     "extraResources": [
       "index.ejs",
-      "player/*"
+      "public/**"
     ],
     "mac": {
       "electronLanguages": [

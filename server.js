@@ -2,7 +2,7 @@ const { Hono } = require('hono');
 const { serve } = require('@hono/node-server');
 const { serveStatic } = require('@hono/node-server/serve-static');
 
-const { readFile } = require('fs').promises;
+const { readFile } = require('fs/promises');
 const { resolve, relative } = require('path');
 const { glob } = require('glob');
 const { renderFile } = require('ejs');
@@ -54,11 +54,11 @@ exports.createServer = async (resourcesPath, songsDir) => {
     return c.html(renderFile(templateFile, { songsDir, songs }));
   })
 
-  if (songsDir) {
-    app.use('/player/*', serveStatic({
-      root: relative('.', resourcesPath),
-    }));
+  app.use('/*', serveStatic({
+    root: relative('.', resolve(resourcesPath, 'public')),
+  }));
 
+  if (songsDir) {
     app.use('/songs/*', serveStatic({
       root: relative('.', songsDir),
       rewriteRequestPath: (path) => path.replace(/^\/songs/, ''),

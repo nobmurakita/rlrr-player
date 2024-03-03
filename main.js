@@ -1,6 +1,7 @@
 
 const fs = require('fs');
-const { app, Menu, dialog, BrowserWindow } = require('electron/main')
+const { resolve } = require('path');
+const { app, Menu, dialog, BrowserWindow, ipcMain } = require('electron/main')
 const Store = require('electron-store');
 const { createServer } = require('./server.js');
 
@@ -78,7 +79,13 @@ app.whenReady().then(async () => {
     }
   }
 
+  ipcMain.handle('openSongsDir', openSongsDir);
+
   createMenu();
-  win = new BrowserWindow();
+  win = new BrowserWindow({
+    webPreferences: {
+      preload: resolve('.', 'preload.js'),
+    },
+  });
   loadMainWindow(songsDir);
 });

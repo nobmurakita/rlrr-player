@@ -68,9 +68,10 @@ class Audio {
 
     async play() {
         if (!this.isPlaying) {
-            if (this.audioCtx.state == 'suspended') {
-                await this.audioCtx.resume();
-            }
+            await this.audioCtx.suspend();
+            await this.audioCtx.resume();
+            await this.audioCtx.suspend();
+            await this.audioCtx.resume();
             this.songSources = this.songBuffers.map(buffer => this.toAudioBufferSource(buffer, this.songGainNode));
             this.drumSources = this.drumBuffers.map(buffer => this.toAudioBufferSource(buffer, this.drumGainNode));
             this.songSources.forEach(source => source.start(this.audioCtx.currentTime, this.time));
