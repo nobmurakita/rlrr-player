@@ -81,11 +81,20 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('openSongsDir', openSongsDir);
 
-  createMenu();
+  // createMenu();
+
+  const sizeOption = { width: 600, height: 600, useContentSize: true };
   win = new BrowserWindow({
+    ...sizeOption,
     webPreferences: {
       preload: resolve('.', 'preload.js'),
     },
+  });
+  win.webContents.setWindowOpenHandler(() => {
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: { ...sizeOption }
+    };
   });
   loadMainWindow(songsDir);
 });
