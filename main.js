@@ -35,6 +35,10 @@ const createMenu = () => {
       label: app.getName(),
       submenu: [
         {
+          label: `About RLRR Player`,
+          click: () => dialog.showMessageBox(win, { message: `v${app.getVersion()}` }),
+        },
+        {
           label: 'Quit',
           role: 'quite',
         },
@@ -81,7 +85,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('openSongsDir', openSongsDir);
 
-  // createMenu();
+  createMenu();
 
   const sizeOption = { width: 600, height: 600, useContentSize: true };
   win = new BrowserWindow({
