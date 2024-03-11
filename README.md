@@ -2,9 +2,13 @@
 
 Paradiddle Custom Song Player
 
-**Paradiddle Official Site:** https://paradiddleapp.com
+- Paradiddle Official Site
+  - https://paradiddleapp.com
+- Custom Song Sharing Site
+  - https://paradb.net
 
-**Custom Song Sharing Site:** https://paradb.net
+## Download
+https://github.com/nobmurakita/rlrr-player/releases
 
 ## Shortcut Keys
 
