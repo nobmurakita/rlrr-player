@@ -1,6 +1,6 @@
 
 const fs = require('fs');
-const { resolve } = require('path');
+const { join } = require('path');
 const { app, Menu, dialog, BrowserWindow, ipcMain } = require('electron/main')
 const Store = require('electron-store');
 const { createServer } = require('./server.js');
@@ -91,7 +91,7 @@ app.whenReady().then(async () => {
   win = new BrowserWindow({
     ...sizeOption,
     webPreferences: {
-      preload: resolve('.', 'preload.js'),
+      preload: join(__dirname, 'preload.js'),
     },
   });
   win.webContents.setWindowOpenHandler(() => {
