@@ -22,6 +22,7 @@ class Note {
     constructor(name, time) {
         this.name = name;
         this.instrument = name.split('_')[1];
+        this.valid = Boolean(NOTES[this.instrument]);
 
         const t = Number(time);
         this._showAt = t - NOTE_VISIBLE_TIME;
@@ -112,7 +113,7 @@ class Notes {
     }
 
     init(events, bpmEvents, audioLength) {
-        this.notes = events.map(event => new Note(event.name, event.time));
+        this.notes = events.map(event => new Note(event.name, event.time)).filter(note => note.valid);
         this.guides = this.createGuides(bpmEvents, audioLength);
     }
 
