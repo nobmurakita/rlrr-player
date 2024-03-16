@@ -29,6 +29,22 @@ const openSongsDir = async () => {
   loadMainWindow(songsDir);
 };
 
+const getPlayerOptions = () => {
+  const defaultOptions = {
+    masterVolume: 0.5,
+    songVolume: 0.5,
+    drumVolume: 0.5,
+    noteVolume: 0.5,
+  };
+  const options = store.get('playerOptions') || {};
+  return { ...defaultOptions, ...options };
+};
+
+const updatePlayerOptions = (_event, playerOptions) => {
+  const currentOptions = getPlayerOptions();
+  store.set('playerOptions', { ...currentOptions, ...playerOptions });
+};
+
 const createMenu = () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
@@ -84,6 +100,8 @@ app.whenReady().then(async () => {
   }
 
   ipcMain.handle('openSongsDir', openSongsDir);
+  ipcMain.handle('getPlayerOptions', getPlayerOptions);
+  ipcMain.on('updatePlayerOptions', updatePlayerOptions);
 
   createMenu();
 
@@ -97,7 +115,12 @@ app.whenReady().then(async () => {
   win.webContents.setWindowOpenHandler(() => {
     return {
       action: 'allow',
-      overrideBrowserWindowOptions: { ...sizeOption }
+      overrideBrowserWindowOptions: {
+        ...sizeOption,
+        webPreferences: {
+          preload: join(__dirname, 'preload.js'),
+        },
+          }
     };
   });
   loadMainWindow(songsDir);

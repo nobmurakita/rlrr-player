@@ -24,21 +24,35 @@ async function setup() {
         app.mouseReleased(toAppX(mouseX), toAppY(mouseY));
     });
 
+    const options = await window.rlrr.getPlayerOptions();
+    app.audio.masterGainNode.gain.value = options.masterVolume;
+    app.audio.songGainNode.gain.value = options.songVolume;
+    app.audio.drumGainNode.gain.value = options.drumVolume;
+    app.audio.noteGainNode.gain.value = options.noteVolume;
+
     document.getElementById('masterVolume').value = Math.floor(app.audio.masterGainNode.gain.value * 100)
     document.getElementById('masterVolume').addEventListener('input', event => {
-        app.audio.masterGainNode.gain.value = event.target.value / 100;
+        const masterVolume = event.target.value / 100;
+        app.audio.masterGainNode.gain.value = masterVolume;
+        window.rlrr.updatePlayerOptions({ masterVolume });
     })
     document.getElementById('songVolume').value = Math.floor(app.audio.songGainNode.gain.value * 100)
     document.getElementById('songVolume').addEventListener('input', event => {
-        app.audio.songGainNode.gain.value = event.target.value / 100;
+        const songVolume = event.target.value / 100;
+        app.audio.songGainNode.gain.value = songVolume;
+        window.rlrr.updatePlayerOptions({ songVolume });
     })
     document.getElementById('drumVolume').value = Math.floor(app.audio.drumGainNode.gain.value * 100)
     document.getElementById('drumVolume').addEventListener('input', event => {
-        app.audio.drumGainNode.gain.value = event.target.value / 100;
+        const drumVolume = event.target.value / 100;
+        app.audio.drumGainNode.gain.value = drumVolume;
+        window.rlrr.updatePlayerOptions({ drumVolume });
     })
     document.getElementById('noteVolume').value = Math.floor(app.audio.noteGainNode.gain.value * 100)
     document.getElementById('noteVolume').addEventListener('input', event => {
-        app.audio.noteGainNode.gain.value = event.target.value / 100;
+        const noteVolume = event.target.value / 100;
+        app.audio.noteGainNode.gain.value = noteVolume;
+        window.rlrr.updatePlayerOptions({ noteVolume });
     })
     document.getElementById('volumes').addEventListener('mouseleave', () => {
         if (document.activeElement != document.body) {
