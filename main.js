@@ -121,7 +121,7 @@ app.whenReady().then(async () => {
         webPreferences: {
           preload: join(__dirname, 'preload.js'),
         },
-          }
+      },
     };
   });
   loadMainWindow(songsDir);
