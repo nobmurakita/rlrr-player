@@ -35,6 +35,7 @@ const getPlayerOptions = () => {
     songVolume: 0.5,
     drumVolume: 0.5,
     noteVolume: 0.5,
+    repeat: false,
   };
   const options = store.get('playerOptions') || {};
   return { ...defaultOptions, ...options };

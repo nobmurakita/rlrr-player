@@ -114,13 +114,7 @@ class App {
         }
     }
     skip(newTime, continuePlaying) {
-        this.audio.time = newTime;
-        if (this.audio.isPlaying && continuePlaying) {
-            this.pause();
-            if (!this.audio.isEnded) {
-                setTimeout(() => this.play(), 1000 / 60);
-            }
-        }
+        this.audio.skip(newTime, continuePlaying);
     }
 
     // 時間を進める

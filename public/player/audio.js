@@ -32,6 +32,8 @@ class Audio {
     startTime = 0;
     time = 0;
 
+    repeat = false;
+
     init() {
         this.audioCtx = new AudioContext();
         this.masterGainNode = this.audioCtx.createGain();
@@ -103,6 +105,17 @@ class Audio {
         return null;
     }
 
+    skip(newTime, continuePlaying) {
+        this.time = newTime;
+        if (this.isPlaying && continuePlaying) {
+            this.pause();
+            if (!this.isEnded) {
+                // スキップ時に即時 play すると Note.sounded が適切に処理されないため1フレーム以上の遅延を挟む
+                setTimeout(() => this.play(), 1000 / 60);
+            }
+        }
+    }
+
     soundNote(drum) {
         const [offset, duration] = NOTE_SPRITE[drum];
         const source = this.toAudioBufferSource(this.noteBuffer, this.noteGainNode);
@@ -124,7 +137,11 @@ class Audio {
 
             this.time = Math.min(this.audioCtx.currentTime - this.startTime, this.length + this.latency);
             if (this.isEnded) {
-                this.pause();
+                if (this.repeat) {
+                    this.skip(0, true);
+                } else {
+                    this.pause();
+                }
             }
         }
     }

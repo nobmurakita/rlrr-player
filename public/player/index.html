@@ -12,7 +12,7 @@
         margin: 0;
         user-select: none;
       }
-      #volumes {
+      #options {
         position: absolute;
         top: 0;
         right: 0;
@@ -23,17 +23,17 @@
         margin: 4px;
         padding: 4px;
       }
-      #volumes:hover {
+      #options:hover {
         opacity: 0.9;
       }
-      #volumes label {
+      #options label {
         display: inline-block;
         width: 60px;
         font-size: 0.7rem;
         text-align: right;
         vertical-align: middle;
       }
-      #volumes input[type=range] {
+      #options input[type=range] {
         width: 100px;
         vertical-align: middle;
       }
@@ -41,10 +41,10 @@
   </head>
   <body>
     <main></main>
-    <div id="volumes">
+    <div id="options">
       <div>
         <label for="master">Master Vol</label>
-        <input type="range" id="masterVolume" name="song" min="0" max="100"/>  
+        <input type="range" id="masterVolume" name="master" min="0" max="100"/>  
       </div>
       <div>
         <label for="song">Song Vol</label>
@@ -57,6 +57,10 @@
       <div>
         <label for="note">Note Vol</label>
         <input type="range" id="noteVolume" name="note" min="0" max="100"/>
+      </div>
+      <div>
+        <label for="repeat">Repeat</label>
+        <input type="checkbox" id="repeat" name="repeat"/>
       </div>
     </div>
   </body>

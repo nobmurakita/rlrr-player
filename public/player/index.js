@@ -29,36 +29,43 @@ async function setup() {
     app.audio.songGainNode.gain.value = options.songVolume;
     app.audio.drumGainNode.gain.value = options.drumVolume;
     app.audio.noteGainNode.gain.value = options.noteVolume;
+    app.audio.repeat = options.repeat;
 
-    document.getElementById('masterVolume').value = Math.floor(app.audio.masterGainNode.gain.value * 100)
+    document.getElementById('masterVolume').value = Math.floor(app.audio.masterGainNode.gain.value * 100);
     document.getElementById('masterVolume').addEventListener('input', event => {
         const masterVolume = event.target.value / 100;
         app.audio.masterGainNode.gain.value = masterVolume;
         window.rlrr.updatePlayerOptions({ masterVolume });
-    })
-    document.getElementById('songVolume').value = Math.floor(app.audio.songGainNode.gain.value * 100)
+    });
+    document.getElementById('songVolume').value = Math.floor(app.audio.songGainNode.gain.value * 100);
     document.getElementById('songVolume').addEventListener('input', event => {
         const songVolume = event.target.value / 100;
         app.audio.songGainNode.gain.value = songVolume;
         window.rlrr.updatePlayerOptions({ songVolume });
-    })
-    document.getElementById('drumVolume').value = Math.floor(app.audio.drumGainNode.gain.value * 100)
+    });
+    document.getElementById('drumVolume').value = Math.floor(app.audio.drumGainNode.gain.value * 100);
     document.getElementById('drumVolume').addEventListener('input', event => {
         const drumVolume = event.target.value / 100;
         app.audio.drumGainNode.gain.value = drumVolume;
         window.rlrr.updatePlayerOptions({ drumVolume });
-    })
-    document.getElementById('noteVolume').value = Math.floor(app.audio.noteGainNode.gain.value * 100)
+    });
+    document.getElementById('noteVolume').value = Math.floor(app.audio.noteGainNode.gain.value * 100);
     document.getElementById('noteVolume').addEventListener('input', event => {
         const noteVolume = event.target.value / 100;
         app.audio.noteGainNode.gain.value = noteVolume;
         window.rlrr.updatePlayerOptions({ noteVolume });
-    })
-    document.getElementById('volumes').addEventListener('mouseleave', () => {
+    });
+    document.getElementById('repeat').checked = options.repeat;
+    document.getElementById('repeat').addEventListener('input', event => {
+        const repeat = event.target.checked;
+        app.audio.repeat = repeat;
+        window.rlrr.updatePlayerOptions({ repeat });
+    });
+    document.getElementById('options').addEventListener('mouseleave', () => {
         if (document.activeElement != document.body) {
             document.activeElement.blur();
         }
-    })
+    });
 
     const url = new URL(window.location.href);
     const rlrr = url.searchParams.get('rlrr');
@@ -105,6 +112,6 @@ function updateCanvasSize() {
     viewportW = wmin;
     viewportH = wmin;
 
-    const volumes = document.getElementById('volumes');
-    volumes.style.right = `${windowWidth - (viewportX + viewportW)}px`;
+    const options = document.getElementById('options');
+    options.style.right = `${windowWidth - (viewportX + viewportW)}px`;
 }
